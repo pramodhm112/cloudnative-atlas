@@ -1,0 +1,370 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getCollection } from 'astro:content';
+
+const posts = (await getCollection('blog'))
+  .sort((a, b) => new Date(b.data.pubDate).getTime() - new Date(a.data.pubDate).getTime())
+  .slice(0, 6);
+
+const categories = [
+  { name: 'DevOps', icon: '⚙️', color: 'devops' },
+  { name: 'Cloud', icon: '☁️', color: 'cloud' },
+  { name: 'AI', icon: '🤖', color: 'ai' },
+  { name: 'Security', icon: '🔐', color: 'security' },
+];
+---
+
+<Layout title="CloudNative Atlas - DevOps, Cloud, AI & Security">
+  <div class="hero">
+    <div class="container">
+      <div class="hero-content fade-in">
+        <h1 class="hero-title">
+          Welcome to <span class="gradient-text">CloudNative Atlas</span>
+        </h1>
+        <p class="hero-subtitle">
+          Your comprehensive guide to navigating the CloudNative ecosystem with cutting-edge insights on DevOps, Cloud, AI, and Security
+        </p>
+        <div class="hero-buttons">
+          <a href="/blog" class="button primary">Explore Articles</a>
+          <a href="/practice-tests" class="button secondary">Take Practice Tests</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="categories">
+    <div class="container">
+      <h2 class="section-title">Explore by Category</h2>
+      <div class="category-grid">
+        {categories.map((category) => (
+          <a href={`/blog?category=${category.name}`} class={`category-card ${category.color}`}>
+            <span class="category-icon">{category.icon}</span>
+            <h3>{category.name}</h3>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="latest-posts">
+    <div class="container">
+      <h2 class="section-title">Latest Articles</h2>
+      <div class="posts-grid">
+        {posts.map((post) => (
+          <article class="post-card glass">
+            <div class="post-header">
+              <span class={`category-badge ${post.data.category.toLowerCase()}`}>
+                {post.data.category}
+              </span>
+              <time class="post-date" datetime={post.data.pubDate.toISOString()}>
+                {new Date(post.data.pubDate).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric'
+                })}
+              </time>
+            </div>
+            <h3 class="post-title">
+              <a href={`/blog/${post.slug}`}>{post.data.title}</a>
+            </h3>
+            <p class="post-description">{post.data.description}</p>
+            <div class="post-footer">
+              <span class="post-author">By {post.data.author}</span>
+              <a href={`/blog/${post.slug}`} class="read-more">
+                Read More →
+              </a>
+            </div>
+          </article>
+        ))}
+      </div>
+      <div class="view-all">
+        <a href="/blog" class="button">View All Articles</a>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .hero {
+    padding: 6rem 0;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 1000px;
+    height: 1000px;
+    background: radial-gradient(circle, rgba(0, 245, 255, 0.1) 0%, transparent 70%);
+    transform: translate(-50%, -50%);
+    animation: pulse 8s ease-in-out infinite;
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 1;
+  }
+
+  .hero-title {
+    font-size: 4rem;
+    margin-bottom: 1.5rem;
+    line-height: 1.1;
+  }
+
+  .gradient-text {
+    background: var(--gradient-1);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero-subtitle {
+    font-size: 1.25rem;
+    color: var(--text-secondary);
+    max-width: 700px;
+    margin: 0 auto 2.5rem;
+  }
+
+  .hero-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .button {
+    padding: 1rem 2rem;
+    border-radius: 10px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    display: inline-block;
+  }
+
+  .button.primary {
+    background: var(--gradient-1);
+    color: var(--bg-primary);
+    box-shadow: var(--shadow-glow);
+  }
+
+  .button.primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 0 40px var(--glow);
+  }
+
+  .button.secondary {
+    background: transparent;
+    border: 2px solid var(--primary);
+    color: var(--primary);
+  }
+
+  .button.secondary:hover {
+    background: var(--primary);
+    color: var(--bg-primary);
+  }
+
+  .categories,
+  .latest-posts {
+    padding: 4rem 0;
+  }
+
+  .section-title {
+    text-align: center;
+    font-size: 2.5rem;
+    margin-bottom: 3rem;
+  }
+
+  .category-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+  }
+
+  .category-card {
+    background: var(--bg-secondary);
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    padding: 3rem 2rem;
+    text-align: center;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .category-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--gradient-1);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .category-card:hover::before {
+    opacity: 0.1;
+  }
+
+  .category-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-glow);
+    border-color: var(--primary);
+  }
+
+  .category-card.devops:hover {
+    border-color: var(--secondary);
+  }
+
+  .category-card.cloud:hover {
+    border-color: var(--primary);
+  }
+
+  .category-card.ai:hover {
+    border-color: var(--accent);
+  }
+
+  .category-card.security:hover {
+    border-color: var(--security);
+  }
+
+  .category-icon {
+    font-size: 4rem;
+    display: block;
+    margin-bottom: 1rem;
+    filter: drop-shadow(0 0 10px var(--glow));
+  }
+
+  .category-card h3 {
+    font-size: 1.5rem;
+    color: var(--text-primary);
+  }
+
+  .posts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 2rem;
+  }
+
+  .post-card {
+    padding: 2rem;
+    transition: all 0.3s ease;
+  }
+
+  .post-card:hover {
+    transform: translateY(-5px);
+  }
+
+  .post-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .category-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .category-badge.devops {
+    background: rgba(255, 149, 0, 0.2);
+    color: var(--secondary);
+  }
+
+  .category-badge.cloud {
+    background: rgba(0, 229, 255, 0.2);
+    color: var(--primary);
+  }
+
+  .category-badge.ai {
+    background: rgba(77, 159, 255, 0.2);
+    color: var(--accent);
+  }
+
+  .category-badge.security {
+    background: rgba(255, 184, 0, 0.2);
+    color: var(--security);
+  }
+
+  .post-date {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+  }
+
+  .post-title {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .post-title a {
+    color: var(--text-primary);
+    text-decoration: none;
+    background: var(--gradient-1);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .post-description {
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+  }
+
+  .post-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .post-author {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+  }
+
+  .read-more {
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s ease;
+  }
+
+  .read-more:hover {
+    transform: translateX(5px);
+  }
+
+  .view-all {
+    text-align: center;
+    margin-top: 3rem;
+  }
+
+  @media (max-width: 768px) {
+    .hero-title {
+      font-size: 2.5rem;
+    }
+
+    .hero-subtitle {
+      font-size: 1rem;
+    }
+
+    .posts-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .category-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+</style>

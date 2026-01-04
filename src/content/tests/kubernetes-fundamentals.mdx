@@ -1,0 +1,129 @@
+---
+title: "Kubernetes Fundamentals Practice Exam"
+description: "Test your knowledge of Kubernetes core concepts, architecture, and best practices"
+category: "DevOps"
+difficulty: "Intermediate"
+timeLimit: 30
+passingScore: 70
+tags: ["kubernetes", "containers", "orchestration", "devOps"]
+---
+
+> What is a Pod in Kubernetes?
+> - A container runtime interface
+> - A network policy controller
+> * The smallest deployable unit that can contain one or more containers
+> - A storage volume type
+
+> Which command is used to create a Kubernetes deployment from a YAML file?
+> - kubectl create deployment
+> * kubectl apply -f deployment.yaml
+> - kubectl run deployment
+> - kubectl start -f deployment.yaml
+
+> What is the purpose of a Service in Kubernetes?
+> * To provide a stable network endpoint for accessing Pods
+> - To store configuration data
+> - To manage container images
+> - To schedule Pods on nodes
+
+> Which of the following is NOT a valid Kubernetes Service type?
+> - ClusterIP
+> - NodePort
+> - LoadBalancer
+> * IngressIP
+
+> What does a Kubernetes Deployment manage?
+> - Network policies
+> * ReplicaSets and Pod lifecycle
+> - Storage volumes
+> - Container images
+
+> Which Kubernetes object is used to store sensitive information like passwords?
+> - ConfigMap
+> * Secret
+> - PersistentVolume
+> - Ingress
+
+> What is the default restart policy for a Pod?
+> * Always
+> - Never
+> - OnFailure
+> - IfNotRunning
+
+> Which component is responsible for scheduling Pods on nodes?
+> - kubelet
+> - kube-proxy
+> * kube-scheduler
+> - etcd
+
+> What is a Namespace in Kubernetes used for?
+> - To define network boundaries
+> * To provide logical isolation and resource organization
+> - To manage container registries
+> - To configure load balancing
+
+> Which probe type checks if a container is ready to accept traffic?
+> - livenessProbe
+> * readinessProbe
+> - startupProbe
+> - healthProbe
+
+> What is the purpose of a PersistentVolume (PV)?
+> - To store Pod logs
+> * To provide storage that persists beyond Pod lifecycle
+> - To cache container images
+> - To store Kubernetes configuration
+
+> Which command shows the logs of a specific Pod?
+> - kubectl get logs
+> * kubectl logs POD_NAME
+> - kubectl show logs
+> - kubectl describe logs
+
+> What does the 'kubectl scale' command do?
+> * Changes the number of replicas in a Deployment or ReplicaSet
+> - Resizes node resources
+> - Adjusts Pod resource limits
+> - Modifies cluster size
+
+> Which Kubernetes object routes external traffic to Services?
+> - Service
+> - Deployment
+> * Ingress
+> - Route
+
+> What is the role of etcd in a Kubernetes cluster?
+> - Container orchestration
+> - Network management
+> * Distributed key-value store for cluster state
+> - Load balancing
+
+> Which annotation is commonly used to configure Ingress?
+> * kubernetes.io/ingress.class
+> - kubernetes.io/service-type
+> - kubernetes.io/pod-security
+> - kubernetes.io/network-policy
+
+> What does a DaemonSet ensure?
+> - All Pods run on the master node
+> * A copy of a Pod runs on all (or selected) nodes
+> - Only one Pod runs in the cluster
+> - Pods are distributed evenly
+
+> Which field in a Pod spec defines resource requirements?
+> - limits
+> - requests
+> * resources
+> - requirements
+
+> What is a StatefulSet used for?
+> - Stateless applications
+> * Applications requiring stable network identities and persistent storage
+> - Batch processing jobs
+> - One-time tasks
+
+> Which command provides detailed information about a Kubernetes resource?
+> - kubectl get
+> - kubectl show
+> * kubectl describe
+> - kubectl info

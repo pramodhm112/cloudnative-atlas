@@ -1,0 +1,279 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getCollection } from 'astro:content';
+import { formatTag } from '../../utils/formatTag';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog');
+  return posts.map((post) => ({
+    params: { slug: post.slug },
+    props: post,
+  }));
+}
+
+const post = Astro.props;
+const { Content } = await post.render();
+
+const formattedDate = new Date(post.data.pubDate).toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+const isoDate = post.data.pubDate.toISOString();
+---
+
+<Layout title={post.data.title} description={post.data.description}>
+  <article class="blog-post">
+    <div class="container">
+      <header class="post-header">
+        <div class="post-meta">
+          <span class={`category-badge ${post.data.category.toLowerCase()}`}>
+            {post.data.category}
+          </span>
+          <time class="post-date" datetime={isoDate}>{formattedDate}</time>
+        </div>
+
+        <h1 class="post-title">{post.data.title}</h1>
+        <p class="post-description">{post.data.description}</p>
+
+        <div class="post-info">
+          <span class="post-author">By {post.data.author}</span>
+          {post.data.tags && post.data.tags.length > 0 && (
+            <div class="post-tags">
+              {post.data.tags.map((tag) => (
+                <span class="tag">{formatTag(tag)}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      </header>
+
+      <div class="post-content glass">
+        <Content />
+      </div>
+
+      <footer class="post-footer">
+        <div class="back-link">
+          <a href="/blog" class="button">← Back to Blog</a>
+        </div>
+      </footer>
+    </div>
+  </article>
+</Layout>
+
+<style>
+  .blog-post {
+    padding: 4rem 0;
+  }
+
+  .post-header {
+    text-align: center;
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 2px solid var(--border);
+  }
+
+  .post-meta {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .category-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .category-badge.devops {
+    background: rgba(255, 149, 0, 0.2);
+    color: var(--secondary);
+  }
+
+  .category-badge.cloud {
+    background: rgba(0, 229, 255, 0.2);
+    color: var(--primary);
+  }
+
+  .category-badge.ai {
+    background: rgba(77, 159, 255, 0.2);
+    color: var(--accent);
+  }
+
+  .category-badge.security {
+    background: rgba(255, 184, 0, 0.2);
+    color: var(--security);
+  }
+
+  .post-date {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+  }
+
+  .post-title {
+    font-size: 3.5rem;
+    margin-bottom: 1.5rem;
+    line-height: 1.2;
+  }
+
+  .post-description {
+    font-size: 1.25rem;
+    color: var(--text-secondary);
+    max-width: 800px;
+    margin: 0 auto 2rem;
+  }
+
+  .post-info {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .post-author {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .post-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .tag {
+    font-size: 0.9rem;
+    color: var(--primary);
+    opacity: 0.8;
+  }
+
+  .post-content {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 3rem;
+    font-size: 1.1rem;
+    line-height: 1.8;
+  }
+
+  .post-content :global(h2) {
+    margin-top: 3rem;
+    margin-bottom: 1.5rem;
+    font-size: 2.25rem;
+  }
+
+  .post-content :global(h3) {
+    margin-top: 2.5rem;
+    margin-bottom: 1.25rem;
+    font-size: 1.75rem;
+  }
+
+  .post-content :global(h4) {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    font-size: 1.4rem;
+  }
+
+  .post-content :global(p) {
+    margin-bottom: 1.5rem;
+  }
+
+  .post-content :global(ul),
+  .post-content :global(ol) {
+    margin-bottom: 1.5rem;
+    padding-left: 2rem;
+  }
+
+  .post-content :global(li) {
+    margin-bottom: 0.75rem;
+  }
+
+  .post-content :global(img) {
+    margin: 2rem 0;
+    border-radius: 12px;
+    box-shadow: var(--shadow-glow);
+  }
+
+  .post-content :global(blockquote) {
+    margin: 2rem 0;
+  }
+
+  .post-content :global(pre) {
+    margin: 2rem 0;
+  }
+
+  .post-content :global(table) {
+    margin: 2rem 0;
+  }
+
+  .post-content :global(a) {
+    color: var(--primary);
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+
+  .post-content :global(a:hover) {
+    color: var(--secondary);
+  }
+
+  .post-content :global(strong) {
+    color: var(--text-primary);
+    font-weight: 700;
+  }
+
+  .post-footer {
+    margin-top: 4rem;
+    padding-top: 2rem;
+    border-top: 2px solid var(--border);
+  }
+
+  .back-link {
+    text-align: center;
+  }
+
+  .button {
+    display: inline-block;
+    padding: 1rem 2rem;
+    background: var(--gradient-1);
+    color: var(--bg-primary);
+    border-radius: 10px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-glow);
+  }
+
+  .button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 0 40px var(--glow);
+  }
+
+  @media (max-width: 768px) {
+    .post-title {
+      font-size: 2rem;
+    }
+
+    .post-description {
+      font-size: 1rem;
+    }
+
+    .post-content {
+      padding: 1.5rem;
+      font-size: 1rem;
+    }
+
+    .post-content :global(h2) {
+      font-size: 1.75rem;
+    }
+
+    .post-content :global(h3) {
+      font-size: 1.4rem;
+    }
+  }
+</style>

@@ -1,0 +1,161 @@
+---
+title: "AWS Security Fundamentals: Protecting Your Cloud Infrastructure"
+description: "A comprehensive guide to securing your AWS environment with IAM, encryption, and monitoring best practices"
+pubDate: 2024-01-20
+author: "TechVault Team"
+category: "Security"
+tags: ["aws", "cloudSecurity", "iam", "encryption"]
+---
+
+# AWS Security Fundamentals
+
+Security in the cloud is a shared responsibility between AWS and you. This guide covers essential security practices to protect your AWS infrastructure.
+
+## Identity and Access Management (IAM)
+
+### Principle of Least Privilege
+
+Always grant the minimum permissions necessary:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::my-bucket/*",
+        "arn:aws:s3:::my-bucket"
+      ]
+    }
+  ]
+}
+```
+
+### MFA Enforcement
+
+> **Critical:** Always enable MFA for root accounts and privileged users. This single step can prevent most account compromises.
+
+## Data Encryption
+
+### Encryption at Rest
+
+| Service | Encryption Method | Key Management |
+|---------|------------------|----------------|
+| S3 | SSE-S3, SSE-KMS | AWS or Customer Managed |
+| EBS | AES-256 | AWS KMS |
+| RDS | Transparent Data Encryption | AWS KMS |
+| DynamoDB | Server-side encryption | AWS owned or KMS |
+
+### Encryption in Transit
+
+Always use TLS/SSL for data in transit:
+
+```python
+import boto3
+from botocore.config import Config
+
+config = Config(
+    signature_version='s3v4',
+    s3={'use_ssl': True}
+)
+
+s3_client = boto3.client('s3', config=config)
+```
+
+## Network Security
+
+### VPC Configuration
+
+Best practices for VPC setup:
+
+1. **Use private subnets** for application and database tiers
+2. **Implement NACLs** for subnet-level security
+3. **Configure Security Groups** as stateful firewalls
+4. **Enable VPC Flow Logs** for network monitoring
+
+### Security Group Rules
+
+```hcl
+resource "aws_security_group" "web" {
+  name        = "web-server-sg"
+  description = "Security group for web servers"
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+```
+
+## Monitoring and Logging
+
+### CloudTrail
+
+Enable CloudTrail in all regions to log API activity:
+
+```bash
+aws cloudtrail create-trail \
+  --name my-trail \
+  --s3-bucket-name my-cloudtrail-bucket \
+  --is-multi-region-trail
+```
+
+### AWS Config
+
+Monitor resource compliance with AWS Config rules to ensure your infrastructure meets security standards.
+
+## Incident Response
+
+**Preparation Checklist:**
+- [ ] Set up CloudWatch alarms for suspicious activities
+- [ ] Configure SNS notifications for security events
+- [ ] Document incident response procedures
+- [ ] Create forensic snapshots automation
+- [ ] Establish communication channels
+
+## Compliance and Governance
+
+Use AWS Organizations and Service Control Policies (SCPs) to enforce security policies:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Deny",
+      "Action": "ec2:RunInstances",
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "ec2:Region": ["us-east-1", "us-west-2"]
+        }
+      }
+    }
+  ]
+}
+```
+
+## Conclusion
+
+AWS security is an ongoing process. Regularly review your security posture, stay updated with AWS security announcements, and conduct periodic security audits.
+
+**Key Takeaways:**
+- Enable MFA everywhere
+- Encrypt data at rest and in transit
+- Monitor all API activities with CloudTrail
+- Follow the principle of least privilege
+- Automate security compliance checks
