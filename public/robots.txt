@@ -4,8 +4,8 @@
 User-agent: *
 Allow: /
 
-# Block crawling of API endpoints (optional, they're already JSON)
-# Disallow: /api/
+# Block crawling of API endpoints
+Disallow: /api/
 
 # Sitemap location
 Sitemap: https://cloudnativeatlas.com/sitemap-index.xml

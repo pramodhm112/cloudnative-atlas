@@ -69,10 +69,13 @@ const websiteSchema = JSON.stringify({
     <script type="application/ld+json" set:html={organizationSchema} />
     <script type="application/ld+json" set:html={websiteSchema} />
 
+    <!-- Security -->
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" referrerpolicy="no-referrer">
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
   </head>
