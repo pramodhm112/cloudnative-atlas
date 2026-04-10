@@ -1,0 +1,175 @@
+---
+const currentPath = Astro.url.pathname;
+const navItems = [
+  { name: 'Dashboard', path: '/admin', icon: 'grid' },
+  { name: 'Blog Posts', path: '/admin/posts', icon: 'file-text' },
+  { name: 'Practice Tests', path: '/admin/tests', icon: 'check-square' },
+];
+---
+
+<aside class="admin-sidebar">
+  <div class="sidebar-header">
+    <a href="/admin" class="admin-logo">
+      <span class="logo-icon">&#9670;</span>
+      <div class="logo-info">
+        <span class="logo-text">CloudNative Atlas</span>
+        <span class="logo-badge">Admin</span>
+      </div>
+    </a>
+  </div>
+
+  <nav class="sidebar-nav" aria-label="Admin navigation">
+    <ul class="sidebar-links">
+      {navItems.map((item) => (
+        <li>
+          <a
+            href={item.path}
+            class:list={['sidebar-link', { active: currentPath === item.path || (item.path !== '/admin' && currentPath.startsWith(item.path)) }]}
+          >
+            {item.icon === 'grid' && (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            )}
+            {item.icon === 'file-text' && (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+            )}
+            {item.icon === 'check-square' && (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+            )}
+            <span>{item.name}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </nav>
+
+  <div class="sidebar-footer">
+    <a href="/" class="sidebar-link" target="_blank">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+      <span>View Site</span>
+    </a>
+    <form method="POST" action="/api/admin/logout" class="logout-form">
+      <button type="submit" class="sidebar-link logout-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+        <span>Logout</span>
+      </button>
+    </form>
+  </div>
+</aside>
+
+<style>
+  .admin-sidebar {
+    width: 260px;
+    min-height: 100vh;
+    background: rgba(10, 14, 39, 0.95);
+    border-right: 1px solid rgba(0, 229, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 100;
+  }
+
+  .sidebar-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid rgba(0, 229, 255, 0.08);
+  }
+
+  .admin-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: var(--text-primary);
+  }
+
+  .logo-icon {
+    font-size: 1.5rem;
+    color: var(--primary);
+    filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.5));
+  }
+
+  .logo-info {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .logo-text {
+    font-size: 0.95rem;
+    font-weight: 700;
+    background: var(--gradient-1);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .logo-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--secondary);
+    opacity: 0.8;
+  }
+
+  .sidebar-nav {
+    flex: 1;
+    padding: 1rem 0;
+  }
+
+  .sidebar-links {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .sidebar-links li {
+    margin: 0;
+  }
+
+  .sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.5rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border: none;
+    background: none;
+    width: 100%;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .sidebar-link:hover {
+    color: var(--text-primary);
+    background: rgba(0, 229, 255, 0.05);
+  }
+
+  .sidebar-link.active {
+    color: var(--primary);
+    background: rgba(0, 229, 255, 0.08);
+    border-right: 3px solid var(--primary);
+  }
+
+  .sidebar-footer {
+    padding: 1rem 0;
+    border-top: 1px solid rgba(0, 229, 255, 0.08);
+  }
+
+  .logout-form {
+    margin: 0;
+  }
+
+  .logout-btn {
+    color: var(--text-secondary);
+  }
+
+  .logout-btn:hover {
+    color: #f44336;
+    background: rgba(244, 67, 54, 0.05);
+  }
+</style>

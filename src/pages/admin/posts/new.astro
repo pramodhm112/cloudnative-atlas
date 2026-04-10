@@ -1,0 +1,149 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+
+export const prerender = false;
+---
+
+<AdminLayout title="New Blog Post">
+  <div class="form-container">
+    <form id="post-form" class="admin-card">
+      <div class="form-grid">
+        <div class="admin-form-group form-full">
+          <label for="title">Title *</label>
+          <input type="text" id="title" name="title" class="admin-input" required placeholder="Enter post title" />
+        </div>
+
+        <div class="admin-form-group form-full">
+          <label for="description">Description *</label>
+          <input type="text" id="description" name="description" class="admin-input" required placeholder="Brief description of the post" />
+        </div>
+
+        <div class="admin-form-group">
+          <label for="category">Category *</label>
+          <select id="category" name="category" class="admin-select" required>
+            <option value="">Select category</option>
+            <option value="DevOps">DevOps</option>
+            <option value="Cloud">Cloud</option>
+            <option value="AI">AI</option>
+            <option value="Security">Security</option>
+          </select>
+        </div>
+
+        <div class="admin-form-group">
+          <label for="author">Author</label>
+          <input type="text" id="author" name="author" class="admin-input" value="CloudNative Atlas Team" />
+        </div>
+
+        <div class="admin-form-group">
+          <label for="tags">Tags (comma-separated)</label>
+          <input type="text" id="tags" name="tags" class="admin-input" placeholder="kubernetes, devops, cloud" />
+        </div>
+
+        <div class="admin-form-group">
+          <label for="image">Image URL (optional)</label>
+          <input type="text" id="image" name="image" class="admin-input" placeholder="/images/post-image.jpg" />
+        </div>
+
+        <div class="admin-form-group form-full">
+          <label for="body">Content (MDX) *</label>
+          <textarea id="body" name="body" class="admin-textarea" required placeholder="Write your post content in MDX format...
+
+# Heading
+
+Your content here with **bold**, *italic*, and `code` formatting.
+
+## Subheading
+
+```yaml
+apiVersion: v1
+kind: Pod
+```"></textarea>
+        </div>
+      </div>
+
+      <div id="form-error" class="admin-alert admin-alert-error" style="display: none;"></div>
+
+      <div class="form-actions">
+        <a href="/admin/posts" class="admin-btn admin-btn-secondary">Cancel</a>
+        <button type="submit" class="admin-btn admin-btn-primary" id="submit-btn">Create Post</button>
+      </div>
+    </form>
+  </div>
+</AdminLayout>
+
+<script>
+  const form = document.getElementById('post-form') as HTMLFormElement;
+  const errorEl = document.getElementById('form-error') as HTMLElement;
+  const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorEl.style.display = 'none';
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Creating...';
+
+    const title = (document.getElementById('title') as HTMLInputElement).value.trim();
+    const description = (document.getElementById('description') as HTMLInputElement).value.trim();
+    const category = (document.getElementById('category') as HTMLSelectElement).value;
+    const author = (document.getElementById('author') as HTMLInputElement).value.trim();
+    const tagsRaw = (document.getElementById('tags') as HTMLInputElement).value.trim();
+    const image = (document.getElementById('image') as HTMLInputElement).value.trim();
+    const body = (document.getElementById('body') as HTMLTextAreaElement).value;
+
+    const tags = tagsRaw ? tagsRaw.split(',').map((t) => t.trim()).filter(Boolean) : [];
+
+    try {
+      const res = await fetch('/api/admin/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, description, category, author, tags, image, body }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        window.location.href = '/admin/posts?success=1';
+      } else {
+        errorEl.textContent = data.error || 'Failed to create post';
+        errorEl.style.display = 'block';
+      }
+    } catch {
+      errorEl.textContent = 'Network error. Please try again.';
+      errorEl.style.display = 'block';
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Create Post';
+    }
+  });
+</script>
+
+<style>
+  .form-container {
+    max-width: 900px;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 1.5rem;
+  }
+
+  .form-full {
+    grid-column: 1 / -1;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(0, 229, 255, 0.08);
+  }
+
+  @media (max-width: 768px) {
+    .form-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

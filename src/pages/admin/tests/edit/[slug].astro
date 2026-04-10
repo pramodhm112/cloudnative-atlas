@@ -1,0 +1,342 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import { readContent, parseQuestions } from '../../../../lib/content-manager';
+
+export const prerender = false;
+
+const { slug } = Astro.params;
+const test = slug ? readContent('tests', slug) : null;
+
+if (!test) {
+  return Astro.redirect('/admin/tests');
+}
+
+const fm = test.frontmatter;
+const questions = parseQuestions(test.body);
+const tags = Array.isArray(fm.tags) ? (fm.tags as string[]).join(', ') : '';
+---
+
+<AdminLayout title="Edit Practice Test">
+  <div class="form-container">
+    <form id="test-form" class="admin-card">
+      <div class="form-grid">
+        <div class="admin-form-group form-full">
+          <label for="title">Title *</label>
+          <input type="text" id="title" class="admin-input" required value={fm.title as string} />
+        </div>
+
+        <div class="admin-form-group form-full">
+          <label for="description">Description *</label>
+          <input type="text" id="description" class="admin-input" required value={fm.description as string} />
+        </div>
+
+        <div class="admin-form-group">
+          <label for="category">Category *</label>
+          <select id="category" class="admin-select" required>
+            {['DevOps', 'Cloud', 'AI', 'Security'].map((cat) => (
+              <option value={cat} selected={cat === fm.category}>{cat}</option>
+            ))}
+          </select>
+        </div>
+
+        <div class="admin-form-group">
+          <label for="difficulty">Difficulty *</label>
+          <select id="difficulty" class="admin-select" required>
+            {['Beginner', 'Intermediate', 'Advanced'].map((d) => (
+              <option value={d} selected={d === fm.difficulty}>{d}</option>
+            ))}
+          </select>
+        </div>
+
+        <div class="admin-form-group">
+          <label for="timeLimit">Time Limit (minutes, optional)</label>
+          <input type="number" id="timeLimit" class="admin-input" min="1" max="180" value={fm.timeLimit ? String(fm.timeLimit) : ''} />
+        </div>
+
+        <div class="admin-form-group">
+          <label for="passingScore">Passing Score (%)</label>
+          <input type="number" id="passingScore" class="admin-input" min="0" max="100" value={String(fm.passingScore || 70)} />
+        </div>
+
+        <div class="admin-form-group form-full">
+          <label for="tags">Tags (comma-separated)</label>
+          <input type="text" id="tags" class="admin-input" value={tags} />
+        </div>
+      </div>
+
+      <div class="questions-section">
+        <div class="questions-header">
+          <h2>Questions</h2>
+          <button type="button" id="add-question" class="admin-btn admin-btn-secondary">+ Add Question</button>
+        </div>
+
+        <div id="questions-container"></div>
+      </div>
+
+      <div id="form-error" class="admin-alert admin-alert-error" style="display: none;"></div>
+      <div id="form-success" class="admin-alert admin-alert-success" style="display: none;"></div>
+
+      <div class="form-actions">
+        <a href="/admin/tests" class="admin-btn admin-btn-secondary">Cancel</a>
+        <button type="submit" class="admin-btn admin-btn-primary" id="submit-btn">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</AdminLayout>
+
+<script define:vars={{ slug, questions: JSON.stringify(questions) }}>
+  const existingQuestions = JSON.parse(questions);
+  let questionCount = 0;
+
+  function createQuestionBlock(index, data) {
+    const div = document.createElement('div');
+    div.className = 'question-block';
+    div.dataset.index = String(index);
+
+    const q = data || { question: '', options: ['', '', '', ''], correctIndex: 0 };
+
+    div.innerHTML = `
+      <div class="question-block-header">
+        <span class="question-number">Question ${index + 1}</span>
+        <button type="button" class="remove-question admin-btn admin-btn-danger admin-btn-sm">&times; Remove</button>
+      </div>
+      <div class="admin-form-group">
+        <label>Question Text *</label>
+        <input type="text" class="admin-input q-text" value="${escapeHtml(q.question)}" required placeholder="Enter the question" />
+      </div>
+      <div class="options-grid">
+        ${q.options.map((opt, i) => `
+          <div class="option-row">
+            <input type="radio" name="correct-${index}" value="${i}" ${i === q.correctIndex ? 'checked' : ''} />
+            <input type="text" class="admin-input q-option" value="${escapeHtml(opt)}" required placeholder="Option ${i + 1}" />
+          </div>
+        `).join('')}
+      </div>
+      <p class="option-hint">Select the radio button next to the correct answer</p>
+    `;
+
+    div.querySelector('.remove-question').addEventListener('click', () => {
+      div.remove();
+      renumberQuestions();
+    });
+
+    return div;
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML.replace(/"/g, '&quot;');
+  }
+
+  function renumberQuestions() {
+    document.querySelectorAll('.question-block').forEach((block, i) => {
+      block.dataset.index = String(i);
+      block.querySelector('.question-number').textContent = `Question ${i + 1}`;
+      block.querySelectorAll('input[type="radio"]').forEach((radio) => {
+        radio.name = `correct-${i}`;
+      });
+    });
+  }
+
+  function addQuestion(data) {
+    const container = document.getElementById('questions-container');
+    const block = createQuestionBlock(questionCount, data);
+    container.appendChild(block);
+    questionCount++;
+  }
+
+  // Load existing questions
+  existingQuestions.forEach((q) => addQuestion(q));
+
+  // If no existing questions, add an empty one
+  if (existingQuestions.length === 0) {
+    addQuestion(null);
+  }
+
+  document.getElementById('add-question').addEventListener('click', () => addQuestion(null));
+
+  // Form submission
+  const form = document.getElementById('test-form');
+  const errorEl = document.getElementById('form-error');
+  const successEl = document.getElementById('form-success');
+  const submitBtn = document.getElementById('submit-btn');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorEl.style.display = 'none';
+    successEl.style.display = 'none';
+
+    const questionsData = [];
+    const blocks = document.querySelectorAll('.question-block');
+
+    for (const block of blocks) {
+      const questionText = block.querySelector('.q-text').value.trim();
+      const optionEls = block.querySelectorAll('.q-option');
+      const options = Array.from(optionEls).map((el) => el.value.trim());
+      const correctRadio = block.querySelector('input[type="radio"]:checked');
+      const correctIndex = correctRadio ? parseInt(correctRadio.value) : 0;
+
+      if (!questionText || options.some((o) => !o)) {
+        errorEl.textContent = 'Please fill in all question fields.';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      questionsData.push({ question: questionText, options, correctIndex });
+    }
+
+    if (questionsData.length === 0) {
+      errorEl.textContent = 'Add at least one question.';
+      errorEl.style.display = 'block';
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving...';
+
+    const payload = {
+      title: document.getElementById('title').value.trim(),
+      description: document.getElementById('description').value.trim(),
+      category: document.getElementById('category').value,
+      difficulty: document.getElementById('difficulty').value,
+      timeLimit: document.getElementById('timeLimit').value || null,
+      passingScore: parseInt(document.getElementById('passingScore').value) || 70,
+      tags: document.getElementById('tags').value.trim()
+        ? document.getElementById('tags').value.split(',').map((t) => t.trim()).filter(Boolean)
+        : [],
+      questions: questionsData,
+    };
+
+    try {
+      const res = await fetch(`/api/admin/tests/${slug}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        successEl.textContent = 'Test updated successfully!';
+        successEl.style.display = 'block';
+        setTimeout(() => { successEl.style.display = 'none'; }, 3000);
+      } else {
+        errorEl.textContent = data.error || 'Failed to update test';
+        errorEl.style.display = 'block';
+      }
+    } catch {
+      errorEl.textContent = 'Network error. Please try again.';
+      errorEl.style.display = 'block';
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Save Changes';
+    }
+  });
+</script>
+
+<style>
+  .form-container {
+    max-width: 900px;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 1.5rem;
+  }
+
+  .form-full {
+    grid-column: 1 / -1;
+  }
+
+  .questions-section {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(0, 229, 255, 0.08);
+  }
+
+  .questions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .questions-header h2 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+    background: none;
+    -webkit-text-fill-color: var(--text-primary);
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(0, 229, 255, 0.08);
+  }
+
+  @media (max-width: 768px) {
+    .form-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<style is:global>
+  .question-block {
+    background: rgba(11, 37, 64, 0.4);
+    border: 1px solid rgba(0, 229, 255, 0.08);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .question-block-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .question-number {
+    font-weight: 600;
+    color: var(--primary);
+    font-size: 0.9rem;
+  }
+
+  .options-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .option-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .option-row input[type="radio"] {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--primary);
+  }
+
+  .option-row .admin-input {
+    flex: 1;
+  }
+
+  .option-hint {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin: 0.5rem 0 0;
+    opacity: 0.7;
+  }
+</style>

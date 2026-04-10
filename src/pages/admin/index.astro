@@ -1,0 +1,228 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getCollection } from 'astro:content';
+
+export const prerender = false;
+
+const posts = await getCollection('blog');
+const tests = await getCollection('tests');
+
+const categories = ['DevOps', 'Cloud', 'AI', 'Security'];
+const postsByCategory = categories.map((cat) => ({
+  name: cat,
+  count: posts.filter((p) => p.data.category === cat).length,
+}));
+---
+
+<AdminLayout title="Dashboard">
+  <div class="dashboard-stats">
+    <a href="/admin/posts" class="stat-card">
+      <div class="stat-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+        </svg>
+      </div>
+      <div class="stat-info">
+        <span class="stat-number">{posts.length}</span>
+        <span class="stat-label">Blog Posts</span>
+      </div>
+    </a>
+
+    <a href="/admin/tests" class="stat-card">
+      <div class="stat-icon tests-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="9 11 12 14 22 4"></polyline>
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+        </svg>
+      </div>
+      <div class="stat-info">
+        <span class="stat-number">{tests.length}</span>
+        <span class="stat-label">Practice Tests</span>
+      </div>
+    </a>
+
+    {postsByCategory.map((cat) => (
+      <div class="stat-card stat-card-small">
+        <span class={`admin-badge admin-badge-${cat.name.toLowerCase()}`}>{cat.name}</span>
+        <span class="stat-number-small">{cat.count}</span>
+        <span class="stat-label-small">posts</span>
+      </div>
+    ))}
+  </div>
+
+  <div class="dashboard-actions">
+    <h2>Quick Actions</h2>
+    <div class="action-grid">
+      <a href="/admin/posts/new" class="action-card">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span>New Blog Post</span>
+      </a>
+      <a href="/admin/tests/new" class="action-card">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span>New Practice Test</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="dashboard-recent">
+    <h2>Recent Blog Posts</h2>
+    {posts.length > 0 ? (
+      <div class="admin-card">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Category</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {posts
+              .sort((a, b) => new Date(b.data.pubDate).getTime() - new Date(a.data.pubDate).getTime())
+              .slice(0, 5)
+              .map((post) => (
+                <tr>
+                  <td>
+                    <a href={`/admin/posts/edit/${post.slug}`} style="color: var(--text-primary); text-decoration: none;">
+                      {post.data.title}
+                    </a>
+                  </td>
+                  <td><span class={`admin-badge admin-badge-${post.data.category.toLowerCase()}`}>{post.data.category}</span></td>
+                  <td style="color: var(--text-secondary); font-size: 0.85rem;">
+                    {new Date(post.data.pubDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      <div class="admin-empty">No blog posts yet. Create your first one!</div>
+    )}
+  </div>
+</AdminLayout>
+
+<style>
+  .dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .stat-card {
+    background: rgba(15, 30, 56, 0.6);
+    border: 1px solid rgba(0, 229, 255, 0.1);
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+
+  .stat-card:hover {
+    border-color: rgba(0, 229, 255, 0.25);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  }
+
+  .stat-card-small {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem;
+  }
+
+  .stat-icon {
+    color: var(--primary);
+    opacity: 0.8;
+  }
+
+  .tests-icon {
+    color: var(--secondary);
+  }
+
+  .stat-info {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .stat-number {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+  }
+
+  .stat-number-small {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .stat-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .stat-label-small {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+  .dashboard-actions {
+    margin-bottom: 2rem;
+  }
+
+  .dashboard-actions h2,
+  .dashboard-recent h2 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 1rem;
+    background: none;
+    -webkit-text-fill-color: var(--text-primary);
+  }
+
+  .action-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+
+  .action-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    background: rgba(0, 229, 255, 0.05);
+    border: 1px dashed rgba(0, 229, 255, 0.2);
+    border-radius: 10px;
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+  }
+
+  .action-card:hover {
+    background: rgba(0, 229, 255, 0.1);
+    border-style: solid;
+  }
+
+  .dashboard-recent {
+    margin-bottom: 2rem;
+  }
+</style>

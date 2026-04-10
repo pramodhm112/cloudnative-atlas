@@ -1,0 +1,271 @@
+---
+import AdminNav from '../components/admin/AdminNav.astro';
+import '../styles/global.css';
+
+export const prerender = false;
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <title>{title} | Admin - CloudNative Atlas</title>
+  </head>
+  <body>
+    <div class="admin-layout">
+      <AdminNav />
+      <main class="admin-main">
+        <header class="admin-header">
+          <h1 class="admin-page-title">{title}</h1>
+        </header>
+        <div class="admin-content">
+          <slot />
+        </div>
+      </main>
+    </div>
+  </body>
+</html>
+
+<style>
+  .admin-layout {
+    display: flex;
+    min-height: 100vh;
+  }
+
+  .admin-main {
+    flex: 1;
+    margin-left: 260px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .admin-header {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid rgba(0, 229, 255, 0.08);
+    background: rgba(10, 14, 39, 0.6);
+  }
+
+  .admin-page-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+    background: none;
+    -webkit-background-clip: unset;
+    background-clip: unset;
+    -webkit-text-fill-color: var(--text-primary);
+  }
+
+  .admin-content {
+    padding: 2rem;
+    flex: 1;
+  }
+
+  @media (max-width: 768px) {
+    .admin-main {
+      margin-left: 0;
+    }
+  }
+</style>
+
+<style is:global>
+  /* Admin-specific global overrides */
+  .admin-card {
+    background: rgba(15, 30, 56, 0.6);
+    border: 1px solid rgba(0, 229, 255, 0.1);
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+
+  .admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+
+  .admin-table th {
+    text-align: left;
+    padding: 0.75rem 1rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid rgba(0, 229, 255, 0.1);
+  }
+
+  .admin-table td {
+    padding: 0.75rem 1rem;
+    color: var(--text-primary);
+    border-bottom: 1px solid rgba(0, 229, 255, 0.05);
+    vertical-align: middle;
+  }
+
+  .admin-table tr:hover td {
+    background: rgba(0, 229, 255, 0.03);
+  }
+
+  .admin-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.25rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    font-family: inherit;
+  }
+
+  .admin-btn-primary {
+    background: var(--gradient-1);
+    color: var(--bg-primary);
+  }
+
+  .admin-btn-primary:hover {
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+    transform: translateY(-1px);
+  }
+
+  .admin-btn-secondary {
+    background: rgba(0, 229, 255, 0.1);
+    color: var(--primary);
+    border: 1px solid rgba(0, 229, 255, 0.2);
+  }
+
+  .admin-btn-secondary:hover {
+    background: rgba(0, 229, 255, 0.15);
+  }
+
+  .admin-btn-danger {
+    background: rgba(244, 67, 54, 0.1);
+    color: #f44336;
+    border: 1px solid rgba(244, 67, 54, 0.2);
+  }
+
+  .admin-btn-danger:hover {
+    background: rgba(244, 67, 54, 0.2);
+  }
+
+  .admin-btn-sm {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  .admin-form-group {
+    margin-bottom: 1.25rem;
+  }
+
+  .admin-form-group label {
+    display: block;
+    margin-bottom: 0.4rem;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .admin-input,
+  .admin-select,
+  .admin-textarea {
+    width: 100%;
+    padding: 0.65rem 0.9rem;
+    background: rgba(11, 37, 64, 0.6);
+    border: 1px solid rgba(0, 229, 255, 0.15);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-family: inherit;
+    transition: border-color 0.2s ease;
+    box-sizing: border-box;
+  }
+
+  .admin-input:focus,
+  .admin-select:focus,
+  .admin-textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.1);
+  }
+
+  .admin-textarea {
+    resize: vertical;
+    min-height: 200px;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+
+  .admin-badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .admin-badge-devops {
+    background: rgba(255, 149, 0, 0.15);
+    color: var(--secondary);
+  }
+
+  .admin-badge-cloud {
+    background: rgba(0, 229, 255, 0.15);
+    color: var(--primary);
+  }
+
+  .admin-badge-ai {
+    background: rgba(77, 159, 255, 0.15);
+    color: var(--accent);
+  }
+
+  .admin-badge-security {
+    background: rgba(255, 184, 0, 0.15);
+    color: #ffb800;
+  }
+
+  .admin-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .admin-empty {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-secondary);
+  }
+
+  .admin-alert {
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+  }
+
+  .admin-alert-success {
+    background: rgba(76, 175, 80, 0.1);
+    border: 1px solid rgba(76, 175, 80, 0.3);
+    color: #4caf50;
+  }
+
+  .admin-alert-error {
+    background: rgba(244, 67, 54, 0.1);
+    border: 1px solid rgba(244, 67, 54, 0.3);
+    color: #f44336;
+  }
+</style>

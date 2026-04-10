@@ -1,0 +1,156 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { listContent, parseQuestions } from '../../../lib/content-manager';
+
+export const prerender = false;
+
+const tests = listContent('tests');
+const testsWithQuestions = tests.map((test) => ({
+  ...test,
+  questionCount: parseQuestions(test.body).length,
+}));
+
+const success = Astro.url.searchParams.get('success');
+const deleted = Astro.url.searchParams.get('deleted');
+---
+
+<AdminLayout title="Practice Tests">
+  {success && <div class="admin-alert admin-alert-success">Practice test created successfully!</div>}
+  {deleted && <div class="admin-alert admin-alert-success">Practice test deleted successfully.</div>}
+
+  <div class="page-actions">
+    <span class="post-count">{tests.length} test{tests.length !== 1 ? 's' : ''}</span>
+    <a href="/admin/tests/new" class="admin-btn admin-btn-primary">+ New Test</a>
+  </div>
+
+  {tests.length > 0 ? (
+    <div class="admin-card">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Category</th>
+            <th>Difficulty</th>
+            <th>Questions</th>
+            <th>Pass %</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {testsWithQuestions.map((test) => (
+            <tr>
+              <td>
+                <a href={`/admin/tests/edit/${test.slug}`} class="post-title-link">
+                  {test.frontmatter.title as string}
+                </a>
+              </td>
+              <td>
+                <span class={`admin-badge admin-badge-${(test.frontmatter.category as string).toLowerCase()}`}>
+                  {test.frontmatter.category as string}
+                </span>
+              </td>
+              <td>
+                <span class={`difficulty-pill ${(test.frontmatter.difficulty as string).toLowerCase()}`}>
+                  {test.frontmatter.difficulty as string}
+                </span>
+              </td>
+              <td style="color: var(--text-secondary);">{test.questionCount}</td>
+              <td style="color: var(--text-secondary);">{test.frontmatter.passingScore as number}%</td>
+              <td>
+                <div class="admin-actions">
+                  <a href={`/admin/tests/edit/${test.slug}`} class="admin-btn admin-btn-secondary admin-btn-sm">Edit</a>
+                  <button
+                    class="admin-btn admin-btn-danger admin-btn-sm delete-btn"
+                    data-slug={test.slug}
+                    data-title={test.frontmatter.title as string}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  ) : (
+    <div class="admin-card admin-empty">
+      <p>No practice tests yet.</p>
+      <a href="/admin/tests/new" class="admin-btn admin-btn-primary" style="margin-top: 1rem;">Create Your First Test</a>
+    </div>
+  )}
+</AdminLayout>
+
+<script>
+  document.querySelectorAll('.delete-btn').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      const target = e.currentTarget as HTMLElement;
+      const slug = target.dataset.slug;
+      const title = target.dataset.title;
+
+      if (!confirm(`Are you sure you want to delete "${title}"? This cannot be undone.`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/admin/tests/${slug}`, { method: 'DELETE' });
+        if (res.ok) {
+          window.location.href = '/admin/tests?deleted=1';
+        } else {
+          const data = await res.json();
+          alert(`Failed to delete: ${data.error}`);
+        }
+      } catch {
+        alert('Failed to delete test. Please try again.');
+      }
+    });
+  });
+</script>
+
+<style>
+  .page-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .post-count {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
+
+  .post-title-link {
+    color: var(--text-primary);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+
+  .post-title-link:hover {
+    color: var(--primary);
+  }
+
+  .difficulty-pill {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    text-transform: uppercase;
+  }
+
+  .difficulty-pill.beginner {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4caf50;
+  }
+
+  .difficulty-pill.intermediate {
+    background: rgba(255, 152, 0, 0.15);
+    color: #ff9800;
+  }
+
+  .difficulty-pill.advanced {
+    background: rgba(244, 67, 54, 0.15);
+    color: #f44336;
+  }
+</style>
