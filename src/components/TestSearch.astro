@@ -19,21 +19,43 @@
 </div>
 
 <script>
-  let allTests: any[] = [];
-  let searchTimeout: NodeJS.Timeout;
+  interface Test {
+    slug: string;
+    title: string;
+    description: string;
+    category: string;
+    difficulty: string;
+    tags?: string[];
+    timeLimit?: number;
+    passingScore: number;
+  }
+
+  let allTests: Test[] = [];
+  let searchTimeout: ReturnType<typeof setTimeout>;
 
   async function loadTests() {
     try {
       const response = await fetch('/api/tests.json');
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       allTests = await response.json();
     } catch (error) {
       console.error('Error loading tests:', error);
+      const container = document.getElementById('test-search-results');
+      if (container) {
+        const msg = document.createElement('p');
+        msg.className = 'no-results';
+        msg.textContent = 'Failed to load search data';
+        container.replaceChildren(msg);
+      }
     }
   }
 
   function searchTests(query: string) {
+    const container = document.getElementById('test-search-results');
+    if (!container) return;
+
     if (!query.trim()) {
-      document.getElementById('test-search-results')!.innerHTML = '';
+      container.replaceChildren();
       return;
     }
 
@@ -46,24 +68,44 @@
       const difficultyMatch = test.difficulty.toLowerCase().includes(lowerQuery);
 
       return titleMatch || descMatch || tagMatch || categoryMatch || difficultyMatch;
-    });
+    }).slice(0, 10);
 
-    displayResults(results);
+    displayResults(results, container);
   }
 
-  function displayResults(results: any[]) {
-    const container = document.getElementById('test-search-results')!;
-
+  function displayResults(results: Test[], container: HTMLElement) {
     if (results.length === 0) {
-      container.innerHTML = '<p class="no-results">No tests found</p>';
+      const msg = document.createElement('p');
+      msg.className = 'no-results';
+      msg.textContent = 'No tests found';
+      container.replaceChildren(msg);
       return;
     }
 
-    container.innerHTML = results.map(test => `
-      <a href="/practice-tests/${test.slug}" class="search-result-item">
-        <h3>${test.title}</h3>
-      </a>
-    `).join('');
+    const fragment = document.createDocumentFragment();
+    results.forEach(test => {
+      const link = document.createElement('a');
+      link.href = `/practice-tests/${test.slug}`;
+      link.className = 'search-result-item';
+
+      const badge = document.createElement('span');
+      badge.className = `result-badge ${test.category.toLowerCase()}`;
+      badge.textContent = test.category;
+
+      const title = document.createElement('span');
+      title.className = 'result-title';
+      title.textContent = test.title;
+
+      const diff = document.createElement('span');
+      diff.className = `result-difficulty ${test.difficulty.toLowerCase()}`;
+      diff.textContent = test.difficulty;
+
+      link.appendChild(badge);
+      link.appendChild(title);
+      link.appendChild(diff);
+      fragment.appendChild(link);
+    });
+    container.replaceChildren(fragment);
   }
 
   // Initialize search on page load
@@ -78,11 +120,20 @@
       }, 300);
     });
 
+    searchInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const container = document.getElementById('test-search-results');
+        if (container) container.replaceChildren();
+        searchInput.blur();
+      }
+    });
+
     // Close search results when clicking outside
     document.addEventListener('click', (e) => {
       const container = document.querySelector('.search-container');
       if (!container?.contains(e.target as Node)) {
-        document.getElementById('test-search-results')!.innerHTML = '';
+        const results = document.getElementById('test-search-results');
+        if (results) results.replaceChildren();
       }
     });
   });
@@ -145,48 +196,104 @@
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
   }
 
-  .search-result-item {
-    display: block;
-    padding: 1rem 1.25rem;
-    border-bottom: 1px solid var(--border);
+  .search-results :global(.search-result-item) {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid rgba(0, 229, 255, 0.08);
     text-decoration: none;
-    transition: all 0.3s ease;
+    transition: background 0.2s ease;
   }
 
-  .search-result-item:last-child {
+  .search-results :global(.search-result-item:last-child) {
     border-bottom: none;
   }
 
-  .search-result-item:hover {
+  .search-results :global(.search-result-item:hover) {
     background: var(--bg-tertiary);
   }
 
-  .search-result-item h3 {
-    font-size: 1.5rem !important;
-    margin: 0 !important;
-    color: var(--primary) !important;
-    font-weight: 400 !important;
-    line-height: 1.3 !important;
-    background: none !important;
-    -webkit-background-clip: unset !important;
-    background-clip: unset !important;
-    -webkit-text-fill-color: unset !important;
+  .search-results :global(.result-badge) {
+    flex-shrink: 0;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    letter-spacing: 0.03em;
   }
 
-  .no-results {
-    padding: 2rem;
+  .search-results :global(.result-badge.devops) {
+    background: rgba(255, 149, 0, 0.15);
+    color: var(--secondary);
+  }
+
+  .search-results :global(.result-badge.cloud) {
+    background: rgba(0, 229, 255, 0.15);
+    color: var(--primary);
+  }
+
+  .search-results :global(.result-badge.ai) {
+    background: rgba(77, 159, 255, 0.15);
+    color: var(--accent);
+  }
+
+  .search-results :global(.result-badge.security) {
+    background: rgba(255, 184, 0, 0.15);
+    color: var(--security);
+  }
+
+  .search-results :global(.result-title) {
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: var(--text-primary);
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+
+  .search-results :global(.search-result-item:hover .result-title) {
+    color: var(--primary);
+  }
+
+  .search-results :global(.result-difficulty) {
+    flex-shrink: 0;
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    letter-spacing: 0.03em;
+  }
+
+  .search-results :global(.result-difficulty.beginner) {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4caf50;
+  }
+
+  .search-results :global(.result-difficulty.intermediate) {
+    background: rgba(255, 152, 0, 0.15);
+    color: #ff9800;
+  }
+
+  .search-results :global(.result-difficulty.advanced) {
+    background: rgba(244, 67, 54, 0.15);
+    color: #f44336;
+  }
+
+  .search-results :global(.no-results) {
+    padding: 1.5rem;
     text-align: center;
     color: var(--text-secondary);
+    font-size: 0.85rem;
   }
 
   @media (max-width: 768px) {
     .search-results {
       max-height: 300px;
-    }
-
-    .result-header {
-      flex-direction: column;
-      gap: 0.5rem;
     }
   }
 </style>

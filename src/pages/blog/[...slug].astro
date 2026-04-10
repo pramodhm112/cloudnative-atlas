@@ -165,22 +165,38 @@ const isoDate = post.data.pubDate.toISOString();
     margin-top: 3rem;
     margin-bottom: 1.5rem;
     font-size: 2.25rem;
+    background: none;
+    -webkit-background-clip: unset;
+    background-clip: unset;
+    -webkit-text-fill-color: var(--primary);
+    font-weight: 600;
   }
 
   .post-content :global(h3) {
     margin-top: 2.5rem;
     margin-bottom: 1.25rem;
     font-size: 1.75rem;
+    background: none;
+    -webkit-background-clip: unset;
+    background-clip: unset;
+    -webkit-text-fill-color: var(--text-primary);
+    font-weight: 500;
   }
 
   .post-content :global(h4) {
     margin-top: 2rem;
     margin-bottom: 1rem;
     font-size: 1.4rem;
+    background: none;
+    -webkit-background-clip: unset;
+    background-clip: unset;
+    -webkit-text-fill-color: var(--text-primary);
+    font-weight: 500;
   }
 
   .post-content :global(p) {
     margin-bottom: 1.5rem;
+    color: var(--text-primary);
   }
 
   .post-content :global(ul),
@@ -191,6 +207,7 @@ const isoDate = post.data.pubDate.toISOString();
 
   .post-content :global(li) {
     margin-bottom: 0.75rem;
+    color: var(--text-primary);
   }
 
   .post-content :global(img) {

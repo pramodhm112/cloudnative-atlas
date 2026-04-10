@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import TestSearch from '../../components/TestSearch.astro';
+import StarField from '../../components/StarField.astro';
 import { getCollection } from 'astro:content';
 import { formatTag } from '../../utils/formatTag';
 
@@ -19,6 +20,7 @@ const filteredTests = categoryParam
   description="Test your knowledge with our comprehensive practice exams"
 >
   <div class="tests-header">
+    <StarField />
     <div class="container">
       <h1 class="page-title">Practice Tests</h1>
       <p class="page-subtitle">
@@ -49,7 +51,7 @@ const filteredTests = categoryParam
         </div>
       ) : (
         <div class="tests-grid">
-          {tests.map((test) => (
+          {filteredTests.map((test) => (
             <article class="test-card glass" data-category={test.data.category}>
               <div class="test-header">
                 <span class={`category-badge ${test.data.category.toLowerCase()}`}>
@@ -105,6 +107,13 @@ const filteredTests = categoryParam
   .tests-header {
     padding: 4rem 0 3rem;
     text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .tests-header .container {
+    position: relative;
+    z-index: 1;
   }
 
   .page-title {
@@ -240,6 +249,10 @@ const filteredTests = categoryParam
   .test-title {
     font-size: 1.5rem;
     margin-bottom: 1rem;
+    background: none;
+    -webkit-background-clip: unset;
+    background-clip: unset;
+    -webkit-text-fill-color: var(--text-primary);
     color: var(--text-primary);
   }
 
