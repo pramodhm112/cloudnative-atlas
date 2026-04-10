@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import Search from '../../components/Search.astro';
+import StarField from '../../components/StarField.astro';
 import { getCollection } from 'astro:content';
 import { formatTag } from '../../utils/formatTag';
 
@@ -12,6 +13,7 @@ const categories = ['All', 'DevOps', 'Cloud', 'AI', 'Security'];
 
 <Layout title="Blog - CloudNative Atlas" description="Explore articles on DevOps, Cloud, AI, and Security">
   <div class="blog-header">
+    <StarField />
     <div class="container">
       <h1 class="page-title">Tech Blog</h1>
       <p class="page-subtitle">Insights, tutorials, and best practices for modern technology</p>
@@ -73,44 +75,17 @@ const categories = ['All', 'DevOps', 'Cloud', 'AI', 'Security'];
   </section>
 </Layout>
 
-<script is:inline>
-  document.addEventListener('DOMContentLoaded', () => {
-    const filterButtons = document.querySelectorAll('.filter-btn');
-    const posts = document.querySelectorAll('.post-card');
-
-    // Set initial active state
-    const firstButton = filterButtons[0];
-    if (firstButton) {
-      firstButton.classList.add('active');
-    }
-
-    filterButtons.forEach(button => {
-      button.addEventListener('click', () => {
-        const category = button.dataset.category;
-
-        // Update active button
-        filterButtons.forEach(btn => btn.classList.remove('active'));
-        button.classList.add('active');
-
-        // Filter posts
-        posts.forEach(post => {
-          const postCategory = post.dataset.category;
-
-          if (category === 'All' || postCategory === category) {
-            post.style.display = '';
-          } else {
-            post.style.display = 'none';
-          }
-        });
-      });
-    });
-  });
-</script>
-
 <style>
   .blog-header {
     padding: 4rem 0 3rem;
     text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .blog-header .container {
+    position: relative;
+    z-index: 1;
   }
 
   .page-title {
@@ -233,12 +208,19 @@ const categories = ['All', 'DevOps', 'Cloud', 'AI', 'Security'];
   }
 
   .post-title a {
-    color: var(--text-primary);
     text-decoration: none;
-    background: var(--gradient-1);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+    background: none;
+    -webkit-background-clip: unset;
+    background-clip: unset;
+    -webkit-text-fill-color: var(--text-primary);
+    color: var(--text-primary);
+    transition: color 0.3s ease;
+  }
+
+  .post-title a:hover {
+    -webkit-text-fill-color: var(--primary);
+    color: var(--primary);
+    text-shadow: none;
   }
 
   .post-description {

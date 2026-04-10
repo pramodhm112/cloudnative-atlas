@@ -127,7 +127,7 @@ const { Content } = await test.render();
 
     function renderQuiz() {
       const content = document.getElementById('test-content');
-      content.innerHTML = '';
+      content.replaceChildren();
 
       questions.forEach((q, index) => {
         const questionDiv = document.createElement('div');
@@ -135,37 +135,62 @@ const { Content } = await test.render();
         questionDiv.id = `question-${index}`;
         questionDiv.style.display = index === 0 ? 'block' : 'none';
 
-        let html = `<h3>Question ${index + 1}</h3><p class="question-text">${q.question}</p><div class="options">`;
+        const heading = document.createElement('h3');
+        heading.textContent = `Question ${index + 1}`;
+        questionDiv.appendChild(heading);
+
+        const questionText = document.createElement('p');
+        questionText.className = 'question-text';
+        questionText.textContent = q.question;
+        questionDiv.appendChild(questionText);
+
+        const optionsDiv = document.createElement('div');
+        optionsDiv.className = 'options';
 
         q.options.forEach((option, optIndex) => {
-          html += `
-            <label class="option">
-              <input type="radio" name="question-${index}" value="${optIndex}" />
-              <span>${option.text}</span>
-            </label>
-          `;
-        });
+          const label = document.createElement('label');
+          label.className = 'option';
 
-        html += `</div>`;
-        html += `<div class="question-nav">`;
-        if (index > 0) {
-          html += `<button class="nav-btn" onclick="navigateQuestion(${index - 1})">← Previous</button>`;
-        }
-        if (index < questions.length - 1) {
-          html += `<button class="nav-btn" onclick="navigateQuestion(${index + 1})">Next →</button>`;
-        }
-        html += `</div>`;
+          const input = document.createElement('input');
+          input.type = 'radio';
+          input.name = `question-${index}`;
+          input.value = String(optIndex);
 
-        questionDiv.innerHTML = html;
-        content.appendChild(questionDiv);
+          const span = document.createElement('span');
+          span.textContent = option.text;
 
-        const inputs = questionDiv.querySelectorAll('input[type="radio"]');
-        inputs.forEach((input) => {
-          input.addEventListener('change', (e) => {
-            userAnswers[index] = parseInt(e.target.value);
+          label.appendChild(input);
+          label.appendChild(span);
+          optionsDiv.appendChild(label);
+
+          input.addEventListener('change', () => {
+            userAnswers[index] = optIndex;
             updateProgress();
           });
         });
+
+        questionDiv.appendChild(optionsDiv);
+
+        const navDiv = document.createElement('div');
+        navDiv.className = 'question-nav';
+
+        if (index > 0) {
+          const prevBtn = document.createElement('button');
+          prevBtn.className = 'nav-btn';
+          prevBtn.textContent = '\u2190 Previous';
+          prevBtn.addEventListener('click', () => navigateQuestion(index - 1));
+          navDiv.appendChild(prevBtn);
+        }
+        if (index < questions.length - 1) {
+          const nextBtn = document.createElement('button');
+          nextBtn.className = 'nav-btn';
+          nextBtn.textContent = 'Next \u2192';
+          nextBtn.addEventListener('click', () => navigateQuestion(index + 1));
+          navDiv.appendChild(nextBtn);
+        }
+
+        questionDiv.appendChild(navDiv);
+        content.appendChild(questionDiv);
       });
 
       updateProgress();
@@ -177,8 +202,6 @@ const { Content } = await test.render();
       currentQuestion = index;
     }
 
-    window.navigateQuestion = navigateQuestion;
-
     function updateProgress() {
       const answered = Object.keys(userAnswers).length;
       document.getElementById('question-progress').textContent = `${answered} of ${questions.length} answered`;
@@ -186,23 +209,29 @@ const { Content } = await test.render();
 
     function startTimer() {
       const timerDisplay = document.getElementById('time-remaining');
+      const timerContainer = document.getElementById('timer');
 
-      timerInterval = setInterval(() => {
-        timeRemaining--;
-
+      const updateDisplay = () => {
         const minutes = Math.floor(timeRemaining / 60);
         const seconds = timeRemaining % 60;
         timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+        if (timeRemaining <= 300) {
+          timerContainer.classList.add('timer-warning');
+        }
+      };
+
+      updateDisplay();
+
+      timerInterval = setInterval(() => {
+        timeRemaining--;
+        updateDisplay();
 
         if (timeRemaining <= 0) {
           clearInterval(timerInterval);
           submitTest();
         }
       }, 1000);
-
-      const minutes = Math.floor(timeRemaining / 60);
-      const seconds = timeRemaining % 60;
-      timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
 
     function submitTest() {
@@ -231,7 +260,7 @@ const { Content } = await test.render();
 
       document.getElementById('score-percentage').textContent = `${percentage}%`;
       document.getElementById('score-text').textContent = passed
-        ? '🎉 Congratulations! You passed!'
+        ? 'Congratulations! You passed!'
         : 'Keep learning! You can retake the test.';
       document.getElementById('correct-count').textContent = `${correctCount} out of ${questions.length} correct`;
 
@@ -286,6 +315,11 @@ const { Content } = await test.render();
       if (retakeBtn) {
         retakeBtn.addEventListener('click', retakeTest);
       }
+    });
+
+    // Clean up timer on page navigation
+    window.addEventListener('beforeunload', () => {
+      if (timerInterval) clearInterval(timerInterval);
     });
   </script>
 </Layout>
@@ -400,6 +434,15 @@ const { Content } = await test.render();
     font-size: 1.25rem;
     font-weight: 600;
     color: var(--primary);
+    transition: color 0.3s ease;
+  }
+
+  .timer :global(.timer-warning) {
+    color: #f44336;
+  }
+
+  :global(.timer-warning) {
+    color: #f44336 !important;
   }
 
   .progress {
