@@ -20,9 +20,30 @@ const formattedDate = new Date(post.data.pubDate).toLocaleDateString('en-US', {
   day: 'numeric',
 });
 const isoDate = post.data.pubDate.toISOString();
+const siteUrl = Astro.site || 'https://cloudnativeatlas.com';
+
+const blogPostSchema = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": post.data.title,
+  "description": post.data.description,
+  "datePublished": isoDate,
+  "author": {
+    "@type": "Person",
+    "name": post.data.author
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "CloudNative Atlas",
+    "logo": { "@type": "ImageObject", "url": new URL('/logo.png', siteUrl).toString() }
+  },
+  "mainEntityOfPage": new URL(`/blog/${post.slug}`, siteUrl).toString(),
+  "keywords": post.data.tags?.join(', ') || ''
+});
 ---
 
-<Layout title={post.data.title} description={post.data.description}>
+<Layout title={`${post.data.title} | CloudNative Atlas`} description={post.data.description}>
+  <script type="application/ld+json" set:html={blogPostSchema} />
   <article class="blog-post">
     <div class="container">
       <header class="post-header">
