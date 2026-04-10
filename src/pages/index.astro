@@ -374,6 +374,34 @@ const categories = [
 
     .category-grid {
       grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+
+    .category-card {
+      padding: 2rem 1rem;
+    }
+
+    .category-icon {
+      font-size: 3rem;
+    }
+
+    .category-card h3 {
+      font-size: 1.1rem;
+      word-break: break-word;
+    }
+  }
+
+  @media (max-width: 380px) {
+    .category-card {
+      padding: 1.5rem 0.75rem;
+    }
+
+    .category-card h3 {
+      font-size: 1rem;
+    }
+
+    .category-icon {
+      font-size: 2.5rem;
     }
   }
 </style>
