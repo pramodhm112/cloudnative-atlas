@@ -115,6 +115,7 @@ const categories = [
     font-size: 4rem;
     margin-bottom: 1.5rem;
     line-height: 1.1;
+    overflow-wrap: break-word;
   }
 
   .gradient-text {
@@ -359,13 +360,23 @@ const categories = [
     margin-top: 3rem;
   }
 
-  @media (max-width: 768px) {
+  @media (max-width: 1024px) {
     .hero-title {
-      font-size: 2.5rem;
+      font-size: 2.25rem;
     }
 
     .hero-subtitle {
-      font-size: 1rem;
+      font-size: 1.05rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .hero-title {
+      font-size: 1.75rem;
+    }
+
+    .hero-subtitle {
+      font-size: 0.95rem;
     }
 
     .posts-grid {
