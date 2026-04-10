@@ -54,7 +54,7 @@ export function listContent(collection: 'blog' | 'tests'): ContentItem[] {
     return {
       slug: file.replace('.mdx', ''),
       frontmatter: data,
-      body: content.trim(),
+      body: content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim(),
     };
   });
 }
@@ -65,10 +65,12 @@ export function readContent(collection: 'blog' | 'tests', slug: string): Content
 
   const raw = fs.readFileSync(filePath, 'utf-8');
   const { data, content } = matter(raw);
+  // Normalize line endings for consistent parsing across OS
+  const normalizedBody = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
   return {
     slug,
     frontmatter: data,
-    body: content.trim(),
+    body: normalizedBody,
   };
 }
 
@@ -128,7 +130,9 @@ export function serializeQuestions(questions: QuestionData[]): string {
 
 export function parseQuestions(body: string): QuestionData[] {
   const questions: QuestionData[] = [];
-  const blocks = body.split(/\n\n+/).filter((b) => b.trim().startsWith('>'));
+  // Normalize line endings (Windows \r\n → \n) before splitting
+  const normalized = body.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const blocks = normalized.split(/\n\n+/).filter((b) => b.trim().startsWith('>'));
 
   for (const block of blocks) {
     const lines = block.split('\n').filter((l) => l.trim().startsWith('>'));
