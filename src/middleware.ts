@@ -1,37 +1,50 @@
 import { defineMiddleware } from 'astro:middleware';
-import { validateSessionToken, COOKIE_NAME } from './lib/auth';
+
+const SECURITY_HEADERS: Record<string, string> = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+};
+
+function applySecurityHeaders(response: Response): Response {
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+    response.headers.set(name, value);
+  }
+  return response;
+}
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const { pathname } = context.url;
 
-  // Only protect admin routes (except login page and auth API)
-  if (!pathname.startsWith('/admin')) {
-    return next();
+  // Protect both /admin/* pages AND /api/admin/* endpoints
+  const isAdminRoute = pathname.startsWith('/admin') || pathname.startsWith('/api/admin');
+
+  if (!isAdminRoute) {
+    return applySecurityHeaders(await next());
   }
 
-  // Allow login page and auth endpoints through
+  // Allow login page and auth endpoints through (unauthenticated)
   if (
     pathname === '/admin/login' ||
-    pathname.startsWith('/api/admin/login') ||
-    pathname.startsWith('/api/admin/logout')
+    pathname === '/api/admin/login' ||
+    pathname === '/api/admin/logout'
   ) {
     return next();
   }
 
-  // Check for session cookie
-  const cookies = context.request.headers.get('cookie') || '';
-  const sessionMatch = cookies
-    .split(';')
-    .map((c) => c.trim())
-    .find((c) => c.startsWith(`${COOKIE_NAME}=`));
+  const authenticated = await context.session?.get('authenticated');
 
-  const token = sessionMatch?.split('=')[1];
-  const secret = import.meta.env.ADMIN_SESSION_SECRET || 'default-secret';
-
-  if (!token || !validateSessionToken(token, secret)) {
+  if (!authenticated) {
+    // API routes get 401, page routes redirect to login
+    if (pathname.startsWith('/api/')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     return context.redirect('/admin/login');
   }
 
-  // Authenticated — proceed
-  return next();
+  return applySecurityHeaders(await next());
 });

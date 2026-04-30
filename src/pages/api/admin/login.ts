@@ -1,26 +1,25 @@
 import type { APIRoute } from 'astro';
-import { createSessionToken, getSessionCookie } from '../../../lib/auth';
+import { safePasswordCompare } from '../../../lib/auth';
 
 export const prerender = false;
 
-export const POST: APIRoute = async ({ request, redirect }) => {
+export const POST: APIRoute = async ({ request, redirect, session }) => {
+  const adminPassword = import.meta.env.ADMIN_PASSWORD;
+
+  // Fail securely if environment is misconfigured
+  if (!adminPassword) {
+    console.error('ADMIN_PASSWORD environment variable is not set');
+    return new Response('Server configuration error', { status: 500 });
+  }
+
   const formData = await request.formData();
   const password = formData.get('password')?.toString() || '';
 
-  const adminPassword = import.meta.env.ADMIN_PASSWORD || 'admin123';
-
-  if (password !== adminPassword) {
+  // Use constant-time comparison to prevent timing attacks
+  if (!safePasswordCompare(password, adminPassword)) {
     return redirect('/admin/login?error=invalid');
   }
 
-  const secret = import.meta.env.ADMIN_SESSION_SECRET || 'default-secret';
-  const token = createSessionToken(secret);
-
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: '/admin',
-      'Set-Cookie': getSessionCookie(token),
-    },
-  });
+  session?.set('authenticated', true);
+  return redirect('/admin');
 };
