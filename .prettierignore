@@ -1,0 +1,7 @@
+dist/
+node_modules/
+.astro/
+.claude/
+package-lock.json
+public/
+src/content/

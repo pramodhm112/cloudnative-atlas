@@ -6,7 +6,7 @@ export const GET: APIRoute = async () => {
     const tests = await getCollection('tests');
 
     const testsData = tests.map(test => ({
-      slug: test.slug,
+      slug: test.id,
       title: test.data.title,
       description: test.data.description,
       category: test.data.category,

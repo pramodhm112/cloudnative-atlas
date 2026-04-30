@@ -67,12 +67,12 @@ const categories = [
               </time>
             </div>
             <h3 class="post-title">
-              <a href={`/blog/${post.slug}`}>{post.data.title}</a>
+              <a href={`/blog/${post.id}`}>{post.data.title}</a>
             </h3>
             <p class="post-description">{post.data.description}</p>
             <div class="post-footer">
               <span class="post-author">By {post.data.author}</span>
-              <a href={`/blog/${post.slug}`} class="read-more">
+              <a href={`/blog/${post.id}`} class="read-more">
                 Read More →
               </a>
             </div>
