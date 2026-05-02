@@ -17,8 +17,11 @@ function applySecurityHeaders(response: Response): Response {
 export const onRequest = defineMiddleware(async (context, next) => {
   const { pathname } = context.url;
 
-  // Protect both /admin/* pages AND /api/admin/* endpoints
-  const isAdminRoute = pathname.startsWith('/admin') || pathname.startsWith('/api/admin');
+  // Protect /admin/* pages, /api/admin/* endpoints, and /_actions/* (all actions are admin-only)
+  const isAdminRoute =
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/api/admin') ||
+    pathname.startsWith('/_actions');
 
   if (!isAdminRoute) {
     return applySecurityHeaders(await next());

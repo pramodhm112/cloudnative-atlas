@@ -20,7 +20,7 @@ const tags = Array.isArray(fm.tags) ? (fm.tags as string[]).join(', ') : '';
 
 <AdminLayout title="Edit Blog Post">
   <div class="form-container">
-    <form id="post-form" class="admin-card">
+    <form id="post-form" class="admin-card" data-slug={slug}>
       <div class="form-grid">
         <div class="admin-form-group form-full">
           <label for="title">Title *</label>
@@ -72,61 +72,68 @@ const tags = Array.isArray(fm.tags) ? (fm.tags as string[]).join(', ') : '';
 
       <div class="form-actions">
         <a href="/admin/posts" class="admin-btn admin-btn-secondary">Cancel</a>
-        <button type="submit" class="admin-btn admin-btn-primary" id="submit-btn">Save Changes</button>
+        <a href={`/admin/preview/blog/${slug}`} target="_blank" class="admin-btn admin-btn-outline">Preview</a>
+        <button type="button" class="admin-btn admin-btn-outline" id="save-draft-btn">Save as Draft</button>
+        <button type="submit" class="admin-btn admin-btn-primary" id="submit-btn">Save &amp; Publish</button>
       </div>
     </form>
   </div>
 </AdminLayout>
 
-<script define:vars={{ slug }}>
-  const form = document.getElementById('post-form');
-  const errorEl = document.getElementById('form-error');
-  const successEl = document.getElementById('form-success');
-  const submitBtn = document.getElementById('submit-btn');
+<script>
+  import { actions } from 'astro:actions';
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
+  const form = document.getElementById('post-form') as HTMLFormElement;
+  const errorEl = document.getElementById('form-error') as HTMLElement;
+  const successEl = document.getElementById('form-success') as HTMLElement;
+  const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+  const draftBtn = document.getElementById('save-draft-btn') as HTMLButtonElement;
+  const slug = form.dataset.slug!;
+
+  async function savePost(status: 'draft' | 'published') {
     errorEl.style.display = 'none';
     successEl.style.display = 'none';
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Saving...';
+    draftBtn.disabled = true;
 
-    const title = document.getElementById('title').value.trim();
-    const description = document.getElementById('description').value.trim();
-    const category = document.getElementById('category').value;
-    const author = document.getElementById('author').value.trim();
-    const pubDate = document.getElementById('pubDate').value;
-    const tagsRaw = document.getElementById('tags').value.trim();
-    const image = document.getElementById('image').value.trim();
-    const body = document.getElementById('body').value;
-
+    const title = (document.getElementById('title') as HTMLInputElement).value.trim();
+    const description = (document.getElementById('description') as HTMLInputElement).value.trim();
+    const category = (document.getElementById('category') as HTMLSelectElement).value as
+      | 'DevOps' | 'Cloud' | 'AI' | 'Security';
+    const author = (document.getElementById('author') as HTMLInputElement).value.trim();
+    const pubDate = (document.getElementById('pubDate') as HTMLInputElement).value;
+    const tagsRaw = (document.getElementById('tags') as HTMLInputElement).value.trim();
+    const image = (document.getElementById('image') as HTMLInputElement).value.trim();
+    const body = (document.getElementById('body') as HTMLTextAreaElement).value;
     const tags = tagsRaw ? tagsRaw.split(',').map((t) => t.trim()).filter(Boolean) : [];
 
-    try {
-      const res = await fetch(`/api/admin/posts/${slug}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description, category, author, pubDate, tags, image, body }),
-      });
+    const label = status === 'draft' ? 'Saving...' : 'Publishing...';
+    (status === 'draft' ? draftBtn : submitBtn).textContent = label;
 
-      const data = await res.json();
+    const { error } = await actions.posts.update({
+      slug, title, description, category, author, pubDate, tags, image, body, status,
+    });
 
-      if (res.ok) {
-        successEl.textContent = 'Post updated successfully!';
-        successEl.style.display = 'block';
-        setTimeout(() => { successEl.style.display = 'none'; }, 3000);
-      } else {
-        errorEl.textContent = data.error || 'Failed to update post';
-        errorEl.style.display = 'block';
-      }
-    } catch {
-      errorEl.textContent = 'Network error. Please try again.';
+    if (error) {
+      errorEl.textContent = error.message || 'Failed to update post';
       errorEl.style.display = 'block';
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Save Changes';
+    } else {
+      successEl.textContent = 'Post updated successfully!';
+      successEl.style.display = 'block';
+      setTimeout(() => { successEl.style.display = 'none'; }, 3000);
     }
+    submitBtn.disabled = false;
+    draftBtn.disabled = false;
+    submitBtn.textContent = 'Save & Publish';
+    draftBtn.textContent = 'Save as Draft';
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    savePost('published');
   });
+
+  draftBtn.addEventListener('click', () => savePost('draft'));
 </script>
 
 <style>
@@ -151,6 +158,17 @@ const tags = Array.isArray(fm.tags) ? (fm.tags as string[]).join(', ') : '';
     margin-top: 1.5rem;
     padding-top: 1.5rem;
     border-top: 1px solid rgba(0, 229, 255, 0.08);
+  }
+
+  .admin-btn-outline {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .admin-btn-outline:hover {
+    color: var(--primary);
+    border-color: rgba(0,229,255,0.3);
+    background: rgba(0,229,255,0.05);
   }
 
   @media (max-width: 768px) {

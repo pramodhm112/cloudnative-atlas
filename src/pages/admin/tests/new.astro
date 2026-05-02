@@ -68,21 +68,45 @@ export const prerender = false;
 
       <div class="form-actions">
         <a href="/admin/tests" class="admin-btn admin-btn-secondary">Cancel</a>
-        <button type="submit" class="admin-btn admin-btn-primary" id="submit-btn">Create Test</button>
+        <button type="button" class="admin-btn admin-btn-outline" id="save-draft-btn">Save as Draft</button>
+        <button type="submit" class="admin-btn admin-btn-primary" id="submit-btn">Save &amp; Publish</button>
       </div>
     </form>
   </div>
 </AdminLayout>
 
 <script>
+  import { actions } from 'astro:actions';
+
+  type QuestionData = { question: string; options: string[]; correctIndex: number };
+  type Category = 'DevOps' | 'Cloud' | 'AI' | 'Security';
+  type Difficulty = 'Beginner' | 'Intermediate' | 'Advanced';
+
   let questionCount = 0;
 
-  function createQuestionBlock(index, data) {
+  function escapeHtml(str: string): string {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML.replace(/"/g, '&quot;');
+  }
+
+  function renumberQuestions(): void {
+    document.querySelectorAll<HTMLElement>('.question-block').forEach((block, i) => {
+      block.dataset.index = String(i);
+      const num = block.querySelector('.question-number');
+      if (num) num.textContent = `Question ${i + 1}`;
+      block.querySelectorAll<HTMLInputElement>('input[type="radio"]').forEach((radio) => {
+        radio.name = `correct-${i}`;
+      });
+    });
+  }
+
+  function createQuestionBlock(index: number, data: QuestionData | null): HTMLDivElement {
     const div = document.createElement('div');
     div.className = 'question-block';
     div.dataset.index = String(index);
 
-    const q = data || { question: '', options: ['', '', '', ''], correctIndex: 0 };
+    const q: QuestionData = data || { question: '', options: ['', '', '', ''], correctIndex: 0 };
 
     div.innerHTML = `
       <div class="question-block-header">
@@ -104,7 +128,7 @@ export const prerender = false;
       <p class="option-hint">Select the radio button next to the correct answer</p>
     `;
 
-    div.querySelector('.remove-question').addEventListener('click', () => {
+    div.querySelector('.remove-question')?.addEventListener('click', () => {
       div.remove();
       renumberQuestions();
     });
@@ -112,51 +136,33 @@ export const prerender = false;
     return div;
   }
 
-  function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str || '';
-    return div.innerHTML.replace(/"/g, '&quot;');
-  }
-
-  function renumberQuestions() {
-    document.querySelectorAll('.question-block').forEach((block, i) => {
-      block.dataset.index = String(i);
-      block.querySelector('.question-number').textContent = `Question ${i + 1}`;
-      block.querySelectorAll('input[type="radio"]').forEach((radio) => {
-        radio.name = `correct-${i}`;
-      });
-    });
-  }
-
-  function addQuestion(data) {
+  function addQuestion(data: QuestionData | null): void {
     const container = document.getElementById('questions-container');
+    if (!container) return;
     const block = createQuestionBlock(questionCount, data);
     container.appendChild(block);
     questionCount++;
   }
 
-  document.getElementById('add-question').addEventListener('click', () => addQuestion(null));
-
-  // Start with one empty question
+  document.getElementById('add-question')?.addEventListener('click', () => addQuestion(null));
   addQuestion(null);
 
-  // Form submission
-  const form = document.getElementById('test-form');
-  const errorEl = document.getElementById('form-error');
-  const submitBtn = document.getElementById('submit-btn');
+  const form = document.getElementById('test-form') as HTMLFormElement;
+  const errorEl = document.getElementById('form-error') as HTMLElement;
+  const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+  const draftBtn = document.getElementById('save-draft-btn') as HTMLButtonElement;
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
+  async function saveTest(status: 'draft' | 'published') {
     errorEl.style.display = 'none';
 
-    const questions = [];
-    const blocks = document.querySelectorAll('.question-block');
+    const questions: QuestionData[] = [];
+    const blocks = document.querySelectorAll<HTMLElement>('.question-block');
 
     for (const block of blocks) {
-      const questionText = block.querySelector('.q-text').value.trim();
-      const optionEls = block.querySelectorAll('.q-option');
+      const questionText = (block.querySelector('.q-text') as HTMLInputElement).value.trim();
+      const optionEls = block.querySelectorAll<HTMLInputElement>('.q-option');
       const options = Array.from(optionEls).map((el) => el.value.trim());
-      const correctRadio = block.querySelector('input[type="radio"]:checked');
+      const correctRadio = block.querySelector<HTMLInputElement>('input[type="radio"]:checked');
       const correctIndex = correctRadio ? parseInt(correctRadio.value) : 0;
 
       if (!questionText || options.some((o) => !o)) {
@@ -175,43 +181,42 @@ export const prerender = false;
     }
 
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Creating...';
+    draftBtn.disabled = true;
+    submitBtn.textContent = status === 'draft' ? 'Save & Publish' : 'Publishing...';
+    draftBtn.textContent = status === 'draft' ? 'Saving Draft...' : 'Save as Draft';
 
-    const payload = {
-      title: document.getElementById('title').value.trim(),
-      description: document.getElementById('description').value.trim(),
-      category: document.getElementById('category').value,
-      difficulty: document.getElementById('difficulty').value,
-      timeLimit: document.getElementById('timeLimit').value || null,
-      passingScore: parseInt(document.getElementById('passingScore').value) || 70,
-      tags: document.getElementById('tags').value.trim()
-        ? document.getElementById('tags').value.split(',').map((t) => t.trim()).filter(Boolean)
-        : [],
-      questions,
-    };
+    const title = (document.getElementById('title') as HTMLInputElement).value.trim();
+    const description = (document.getElementById('description') as HTMLInputElement).value.trim();
+    const category = (document.getElementById('category') as HTMLSelectElement).value as Category;
+    const difficulty = (document.getElementById('difficulty') as HTMLSelectElement).value as Difficulty;
+    const timeLimit = (document.getElementById('timeLimit') as HTMLInputElement).value || null;
+    const passingScore =
+      parseInt((document.getElementById('passingScore') as HTMLInputElement).value) || 70;
+    const tagsRaw = (document.getElementById('tags') as HTMLInputElement).value.trim();
+    const tags = tagsRaw ? tagsRaw.split(',').map((t) => t.trim()).filter(Boolean) : [];
 
-    try {
-      const res = await fetch('/api/admin/tests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+    const { error } = await actions.tests.create({
+      title, description, category, difficulty, timeLimit, passingScore, tags, questions, status,
+    });
 
-      const data = await res.json();
-      if (res.ok) {
-        window.location.href = '/admin/tests?success=1';
-      } else {
-        errorEl.textContent = data.error || 'Failed to create test';
-        errorEl.style.display = 'block';
-      }
-    } catch {
-      errorEl.textContent = 'Network error. Please try again.';
+    if (error) {
+      errorEl.textContent = error.message || 'Failed to create test';
       errorEl.style.display = 'block';
-    } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Create Test';
+      draftBtn.disabled = false;
+      submitBtn.textContent = 'Save & Publish';
+      draftBtn.textContent = 'Save as Draft';
+    } else {
+      window.location.href = '/admin/tests?success=1';
     }
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    saveTest('published');
   });
+
+  draftBtn.addEventListener('click', () => saveTest('draft'));
 </script>
 
 <style>
@@ -258,6 +263,18 @@ export const prerender = false;
     margin-top: 1.5rem;
     padding-top: 1.5rem;
     border-top: 1px solid rgba(0, 229, 255, 0.08);
+  }
+
+  .admin-btn-outline {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .admin-btn-outline:hover {
+    color: var(--primary);
+    border-color: rgba(0,229,255,0.3);
+    background: rgba(0,229,255,0.05);
   }
 
   @media (max-width: 768px) {

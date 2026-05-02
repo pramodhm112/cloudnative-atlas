@@ -65,56 +65,61 @@ kind: Pod
 
       <div class="form-actions">
         <a href="/admin/posts" class="admin-btn admin-btn-secondary">Cancel</a>
-        <button type="submit" class="admin-btn admin-btn-primary" id="submit-btn">Create Post</button>
+        <button type="button" class="admin-btn admin-btn-outline" id="save-draft-btn">Save as Draft</button>
+        <button type="submit" class="admin-btn admin-btn-primary" id="submit-btn">Save &amp; Publish</button>
       </div>
     </form>
   </div>
 </AdminLayout>
 
 <script>
+  import { actions } from 'astro:actions';
+
   const form = document.getElementById('post-form') as HTMLFormElement;
   const errorEl = document.getElementById('form-error') as HTMLElement;
   const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+  const draftBtn = document.getElementById('save-draft-btn') as HTMLButtonElement;
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
+  async function savePost(status: 'draft' | 'published') {
     errorEl.style.display = 'none';
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Creating...';
+    draftBtn.disabled = true;
 
     const title = (document.getElementById('title') as HTMLInputElement).value.trim();
     const description = (document.getElementById('description') as HTMLInputElement).value.trim();
-    const category = (document.getElementById('category') as HTMLSelectElement).value;
+    const category = (document.getElementById('category') as HTMLSelectElement).value as
+      | 'DevOps' | 'Cloud' | 'AI' | 'Security';
     const author = (document.getElementById('author') as HTMLInputElement).value.trim();
     const tagsRaw = (document.getElementById('tags') as HTMLInputElement).value.trim();
     const image = (document.getElementById('image') as HTMLInputElement).value.trim();
     const body = (document.getElementById('body') as HTMLTextAreaElement).value;
-
     const tags = tagsRaw ? tagsRaw.split(',').map((t) => t.trim()).filter(Boolean) : [];
 
-    try {
-      const res = await fetch('/api/admin/posts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description, category, author, tags, image, body }),
-      });
+    const label = status === 'draft' ? 'Saving...' : 'Publishing...';
+    (status === 'draft' ? draftBtn : submitBtn).textContent = label;
 
-      const data = await res.json();
+    const { error } = await actions.posts.create({
+      title, description, category, author, tags, image, body, status,
+    });
 
-      if (res.ok) {
-        window.location.href = '/admin/posts?success=1';
-      } else {
-        errorEl.textContent = data.error || 'Failed to create post';
-        errorEl.style.display = 'block';
-      }
-    } catch {
-      errorEl.textContent = 'Network error. Please try again.';
+    if (error) {
+      errorEl.textContent = error.message || 'Failed to create post';
       errorEl.style.display = 'block';
-    } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Create Post';
+      draftBtn.disabled = false;
+      submitBtn.textContent = 'Save & Publish';
+      draftBtn.textContent = 'Save as Draft';
+    } else {
+      window.location.href = '/admin/posts?success=1';
     }
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    savePost('published');
   });
+
+  draftBtn.addEventListener('click', () => savePost('draft'));
 </script>
 
 <style>
@@ -139,6 +144,17 @@ kind: Pod
     margin-top: 1.5rem;
     padding-top: 1.5rem;
     border-top: 1px solid rgba(0, 229, 255, 0.08);
+  }
+
+  .admin-btn-outline {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .admin-btn-outline:hover {
+    color: var(--primary);
+    border-color: rgba(0,229,255,0.3);
+    background: rgba(0,229,255,0.05);
   }
 
   @media (max-width: 768px) {

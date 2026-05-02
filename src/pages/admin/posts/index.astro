@@ -19,8 +19,21 @@ const deleted = Astro.url.searchParams.get('deleted');
   {deleted && <div class="admin-alert admin-alert-success">Blog post deleted successfully.</div>}
 
   <div class="page-actions">
-    <span class="post-count">{posts.length} post{posts.length !== 1 ? 's' : ''}</span>
+    <span class="post-count">{posts.length} {posts.length === 1 ? 'Post' : 'Posts'}</span>
     <a href="/admin/posts/new" class="admin-btn admin-btn-primary">+ New Post</a>
+  </div>
+
+  <div class="search-bar">
+    <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="11" cy="11" r="8"></circle>
+      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+    </svg>
+    <input
+      type="text"
+      id="search-input"
+      class="admin-input"
+      placeholder="Search by title, category, or author..."
+    />
   </div>
 
   {posts.length > 0 ? (
@@ -28,7 +41,9 @@ const deleted = Astro.url.searchParams.get('deleted');
       <table class="admin-table">
         <thead>
           <tr>
+            <th>#</th>
             <th>Title</th>
+            <th>Status</th>
             <th>Category</th>
             <th>Author</th>
             <th>Date</th>
@@ -36,12 +51,20 @@ const deleted = Astro.url.searchParams.get('deleted');
           </tr>
         </thead>
         <tbody>
-          {posts.map((post) => (
+          {posts.map((post, index) => (
             <tr>
+              <td class="serial-cell">{index + 1}</td>
               <td>
                 <a href={`/admin/posts/edit/${post.slug}`} class="post-title-link">
                   {post.frontmatter.title as string}
                 </a>
+              </td>
+              <td>
+                {(post.frontmatter.status === 'published' || post.frontmatter.status === undefined) ? (
+                  <span class="admin-badge status-published">Published</span>
+                ) : (
+                  <span class="admin-badge status-draft">Draft</span>
+                )}
               </td>
               <td>
                 <span class={`admin-badge admin-badge-${(post.frontmatter.category as string).toLowerCase()}`}>
@@ -56,6 +79,9 @@ const deleted = Astro.url.searchParams.get('deleted');
               </td>
               <td>
                 <div class="admin-actions">
+                  <a href={`/admin/preview/blog/${post.slug}`} target="_blank" class="admin-btn admin-btn-outline admin-btn-sm" title="Preview">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  </a>
                   <a href={`/admin/posts/edit/${post.slug}`} class="admin-btn admin-btn-secondary admin-btn-sm">Edit</a>
                   <button
                     class="admin-btn admin-btn-danger admin-btn-sm delete-btn"
@@ -63,6 +89,13 @@ const deleted = Astro.url.searchParams.get('deleted');
                     data-title={post.frontmatter.title as string}
                   >
                     Delete
+                  </button>
+                  <button
+                    class={`admin-btn admin-btn-sm ${((post.frontmatter.status as string) ?? 'published') === 'published' ? 'admin-btn-warning' : 'admin-btn-success'} publish-btn`}
+                    data-slug={post.slug}
+                    data-status={(post.frontmatter.status as string) ?? 'published'}
+                  >
+                    {((post.frontmatter.status as string) ?? 'published') === 'published' ? 'Unpublish' : 'Publish'}
                   </button>
                 </div>
               </td>
@@ -80,6 +113,26 @@ const deleted = Astro.url.searchParams.get('deleted');
 </AdminLayout>
 
 <script>
+  // Search / filter
+  const searchInput = document.getElementById('search-input') as HTMLInputElement;
+  const tableRows = document.querySelectorAll('.admin-table tbody tr');
+  const postCount = document.querySelector('.post-count');
+
+  searchInput?.addEventListener('input', () => {
+    const query = searchInput.value.toLowerCase().trim();
+    let visible = 0;
+    tableRows.forEach((row) => {
+      const text = row.textContent?.toLowerCase() || '';
+      const match = !query || text.includes(query);
+      (row as HTMLElement).style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+    if (postCount) {
+      postCount.textContent = `${visible} ${visible === 1 ? 'Post' : 'Posts'}`;
+    }
+  });
+
+  // Delete
   document.querySelectorAll('.delete-btn').forEach((btn) => {
     btn.addEventListener('click', async (e) => {
       const target = e.currentTarget as HTMLElement;
@@ -90,16 +143,33 @@ const deleted = Astro.url.searchParams.get('deleted');
         return;
       }
 
+      const { actions } = await import('astro:actions');
+      const { error } = await actions.posts.delete({ slug: slug! });
+      if (error) {
+        alert(`Failed to delete: ${error.message}`);
+      } else {
+        window.location.href = '/admin/posts?deleted=1';
+      }
+    });
+  });
+
+  // Publish / Unpublish
+  document.querySelectorAll('.publish-btn').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      const target = e.currentTarget as HTMLElement;
+      const slug = target.dataset.slug;
+      const currentStatus = target.dataset.status;
+      const newStatus = currentStatus === 'published' ? 'draft' : 'published';
       try {
-        const res = await fetch(`/api/admin/posts/${slug}`, { method: 'DELETE' });
-        if (res.ok) {
-          window.location.href = '/admin/posts?deleted=1';
+        const { actions } = await import('astro:actions');
+        const { error } = await actions.posts.update({ slug: slug!, status: newStatus });
+        if (!error) {
+          window.location.reload();
         } else {
-          const data = await res.json();
-          alert(`Failed to delete: ${data.error}`);
+          alert(`Failed to update status: ${error.message || 'Unknown error'}`);
         }
       } catch {
-        alert('Failed to delete post. Please try again.');
+        alert('Failed to update status. Please try again.');
       }
     });
   });
@@ -127,5 +197,72 @@ const deleted = Astro.url.searchParams.get('deleted');
 
   .post-title-link:hover {
     color: var(--primary);
+  }
+
+  .search-bar {
+    position: relative;
+    margin-bottom: 1.25rem;
+  }
+
+  .search-bar .search-icon {
+    position: absolute;
+    left: 0.85rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  .search-bar .admin-input {
+    padding-left: 2.5rem;
+  }
+
+  .serial-cell {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    width: 40px;
+  }
+  .status-published {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4caf50;
+  }
+  .status-draft {
+    background: rgba(255, 152, 0, 0.15);
+    color: #ff9800;
+  }
+  .admin-btn-outline {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .admin-btn-outline:hover {
+    color: var(--primary);
+    border-color: rgba(0,229,255,0.3);
+    background: rgba(0,229,255,0.05);
+  }
+  .admin-btn-warning {
+    background: rgba(255, 152, 0, 0.1);
+    color: #ff9800;
+    border: 1px solid rgba(255, 152, 0, 0.2);
+  }
+  .admin-btn-warning:hover {
+    background: rgba(255, 152, 0, 0.2);
+  }
+  .admin-btn-success {
+    background: rgba(76, 175, 80, 0.1);
+    color: #4caf50;
+    border: 1px solid rgba(76, 175, 80, 0.2);
+  }
+  .admin-btn-success:hover {
+    background: rgba(76, 175, 80, 0.2);
+  }
+
+  @media (max-width: 768px) {
+    .page-actions {
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
   }
 </style>
