@@ -1,342 +1,76 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import Search from '../../components/Search.astro';
-import StarField from '../../components/StarField.astro';
+import ListingHeader from '../../components/ListingHeader.astro';
+import CategoryFilter from '../../components/CategoryFilter.astro';
+import '../../styles/listing-page.css';
 import { getCollection } from 'astro:content';
 import { formatTag } from '../../utils/formatTag';
+import { isPublished } from '../../lib/publish-status';
+import { computeCategoryCounts } from '../../utils/categoryCounts';
 
 const allPosts = (await getCollection('blog'))
+  .filter((post) => isPublished(post.data))
   .sort((a, b) => new Date(b.data.pubDate).getTime() - new Date(a.data.pubDate).getTime());
 
 const categories = ['All', 'DevOps', 'Cloud', 'AI', 'Security'];
+const categoryCounts = computeCategoryCounts(allPosts, (p) => p.data.category);
 ---
 
 <Layout title="Blog - CloudNative Atlas" description="Explore articles on DevOps, Cloud, AI, and Security">
-  <div class="blog-header">
-    <StarField />
+  <ListingHeader title="Tech Blog" subtitle="Insights, tutorials, and best practices for modern technology">
+    <Search
+      placeholder="Search articles..."
+      endpoint="/api/posts.json"
+      urlPrefix="/blog"
+      variant="simple"
+      notFoundText="No results found"
+    />
+    <CategoryFilter categories={categories} itemLabel="posts" counts={categoryCounts} total={allPosts.length} />
+  </ListingHeader>
+
+  <section class="listing-content">
     <div class="container">
-      <h1 class="page-title">Tech Blog</h1>
-      <p class="page-subtitle">Insights, tutorials, and best practices for modern technology</p>
-
-      <Search />
-
-      <div class="category-filter" role="group" aria-label="Filter posts by category">
-        {categories.map((category) => (
-          <button
-            class="filter-btn"
-            data-category={category}
-            aria-label={`Filter by ${category}`}
-          >
-            {category}
-          </button>
+      <div class="listing-grid">
+        {allPosts.map((post) => (
+          <article class="post-card listing-card glass" data-category={post.data.category}>
+            <div class="card-badges">
+              <span class={`category-badge ${post.data.category.toLowerCase()}`}>
+                {post.data.category}
+              </span>
+              <time class="card-date" datetime={post.data.pubDate.toISOString()}>
+                {new Date(post.data.pubDate).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                })}
+              </time>
+            </div>
+            <h2 class="card-title">
+              <a href={`/blog/${post.id}`}>{post.data.title}</a>
+            </h2>
+            <p class="card-desc">{post.data.description}</p>
+            {post.data.tags && post.data.tags.length > 0 && (
+              <div class="card-tags">
+                {post.data.tags.map((tag) => (
+                  <span class="tag">{formatTag(tag)}</span>
+                ))}
+              </div>
+            )}
+            <div class="card-footer">
+              <span class="card-author" title={post.data.author}>{post.data.author}</span>
+              <a href={`/blog/${post.id}`} class="card-action">
+                Read More
+              </a>
+            </div>
+          </article>
         ))}
       </div>
-    </div>
-  </div>
-
-  <section class="blog-content">
-    <div class="container">
-        <div class="posts-grid">
-          {allPosts.map((post) => (
-            <article class="post-card glass" data-category={post.data.category}>
-              <div class="post-header">
-                <span class={`category-badge ${post.data.category.toLowerCase()}`}>
-                  {post.data.category}
-                </span>
-                <time class="post-date" datetime={post.data.pubDate.toISOString()}>
-                  {new Date(post.data.pubDate).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                  })}
-                </time>
-              </div>
-              <h2 class="post-title">
-                <a href={`/blog/${post.slug}`}>{post.data.title}</a>
-              </h2>
-              <p class="post-description">{post.data.description}</p>
-              {post.data.tags && post.data.tags.length > 0 && (
-                <div class="post-tags">
-                  {post.data.tags.map((tag) => (
-                    <span class="tag">{formatTag(tag)}</span>
-                  ))}
-                </div>
-              )}
-              <div class="post-footer">
-                <span class="post-author">By {post.data.author}</span>
-                <a href={`/blog/${post.slug}`} class="read-more">
-                  Read More →
-                </a>
-              </div>
-            </article>
-          ))}
-        </div>
     </div>
   </section>
 </Layout>
 
-<style>
-  .blog-header {
-    padding: 4rem 0 3rem;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .blog-header .container {
-    position: relative;
-    z-index: 1;
-  }
-
-  .page-title {
-    font-size: 3.5rem;
-    margin-bottom: 1rem;
-    overflow-wrap: break-word;
-  }
-
-  .page-subtitle {
-    font-size: 1.25rem;
-    color: var(--text-secondary);
-    margin-bottom: 3rem;
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .category-filter {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    flex-wrap: wrap;
-    margin-top: 2rem;
-  }
-
-  .filter-btn {
-    padding: 0.75rem 1.5rem;
-    background: transparent;
-    border: 2px solid var(--primary);
-    border-radius: 10px;
-    color: var(--primary);
-    text-decoration: none;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    cursor: pointer;
-    font-size: 1rem;
-    font-family: inherit;
-  }
-
-  .filter-btn:hover {
-    background: rgba(0, 229, 255, 0.1);
-    transform: translateY(-2px);
-  }
-
-  .filter-btn.active {
-    background: var(--gradient-1);
-    border: 2px solid transparent;
-    border-radius: 10px;
-    padding: 0.75rem 1.5rem;
-    color: #0B2540;
-    font-weight: 700;
-    box-shadow:
-      0 0 30px rgba(0, 229, 255, 0.4),
-      0 0 50px rgba(255, 149, 0, 0.2),
-      0 4px 15px rgba(0, 0, 0, 0.3);
-  }
-
-  .blog-content {
-    padding: 2rem 0 4rem;
-  }
-
-  .posts-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 2rem;
-  }
-
-  .post-card {
-    padding: 2rem;
-    transition: all 0.3s ease;
-    animation: fadeIn 0.6s ease-out;
-  }
-
-  .post-card:hover {
-    transform: translateY(-5px);
-  }
-
-  .post-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-  }
-
-  .category-badge {
-    padding: 0.25rem 0.75rem;
-    border-radius: 6px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-  }
-
-  .category-badge.devops {
-    background: rgba(255, 149, 0, 0.2);
-    color: var(--secondary);
-  }
-
-  .category-badge.cloud {
-    background: rgba(0, 229, 255, 0.2);
-    color: var(--primary);
-  }
-
-  .category-badge.ai {
-    background: rgba(77, 159, 255, 0.2);
-    color: var(--accent);
-  }
-
-  .category-badge.security {
-    background: rgba(255, 184, 0, 0.2);
-    color: var(--security);
-  }
-
-  .post-date {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-  }
-
-  .post-title {
-    font-size: 1.5rem;
-    margin-bottom: 1rem;
-  }
-
-  .post-title a {
-    text-decoration: none;
-    background: none;
-    -webkit-background-clip: unset;
-    background-clip: unset;
-    -webkit-text-fill-color: var(--text-primary);
-    color: var(--text-primary);
-    transition: color 0.3s ease;
-  }
-
-  .post-title a:hover {
-    -webkit-text-fill-color: var(--primary);
-    color: var(--primary);
-    text-shadow: none;
-  }
-
-  .post-description {
-    color: var(--text-secondary);
-    margin-bottom: 1rem;
-    line-height: 1.6;
-  }
-
-  .post-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-  }
-
-  .tag {
-    font-size: 0.85rem;
-    color: var(--primary);
-    opacity: 0.7;
-  }
-
-  .post-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border);
-  }
-
-  .post-author {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-  }
-
-  .read-more {
-    color: var(--primary);
-    font-weight: 600;
-    text-decoration: none;
-    transition: all 0.3s ease;
-  }
-
-  .read-more:hover {
-    transform: translateX(5px);
-  }
-
-  .no-posts {
-    text-align: center;
-    padding: 4rem 2rem;
-    color: var(--text-secondary);
-  }
-
-  @media (max-width: 1024px) {
-    .page-title {
-      font-size: 2.25rem;
-    }
-
-    .page-subtitle {
-      font-size: 1.05rem;
-    }
-  }
-
-  @media (max-width: 768px) {
-    .page-title {
-      font-size: 1.75rem;
-    }
-
-    .page-subtitle {
-      font-size: 0.95rem;
-    }
-
-    .posts-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .category-filter {
-      gap: 0.5rem;
-    }
-
-    .filter-btn {
-      padding: 0.5rem 1rem;
-      font-size: 0.9rem;
-    }
-  }
-</style>
-
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const filterButtons = document.querySelectorAll('.filter-btn');
-    const postCards = document.querySelectorAll('.post-card');
-
-    // Set the initial active state to "All"
-    filterButtons.forEach(btn => {
-      if (btn.getAttribute('data-category') === 'All') {
-        btn.classList.add('active');
-      }
-    });
-
-    filterButtons.forEach(button => {
-      button.addEventListener('click', () => {
-        const category = button.getAttribute('data-category');
-
-        // Update active state
-        filterButtons.forEach(btn => btn.classList.remove('active'));
-        button.classList.add('active');
-
-        // Filter posts
-        postCards.forEach(card => {
-          const cardCategory = card.getAttribute('data-category');
-          if (category === 'All' || cardCategory === category) {
-            card.style.display = 'block';
-          } else {
-            card.style.display = 'none';
-          }
-        });
-      });
-    });
-  });
+  import { initCategoryFilter } from '../../scripts/category-filter';
+  initCategoryFilter('.post-card');
 </script>

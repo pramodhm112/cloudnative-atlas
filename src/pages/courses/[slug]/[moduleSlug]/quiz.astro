@@ -1,0 +1,645 @@
+---
+import Layout from '../../../../layouts/Layout.astro';
+import '../../../../styles/quiz.css';
+import { listCourses, getCourseNavSequence, getPrevNext } from '../../../../lib/course-manager';
+import type { QuizQuestion } from '../../../../lib/course-manager';
+import { isPublished } from '../../../../lib/publish-status';
+
+export function getStaticPaths() {
+  const courses = listCourses().filter((c) => isPublished(c.data));
+  const paths: Array<{ params: Record<string, string>; props: Record<string, unknown> }> = [];
+
+  for (const course of courses) {
+    for (const mod of course.data.modules) {
+      if (mod.questions && mod.questions.length > 0) {
+        paths.push({
+          params: { slug: course.slug, moduleSlug: mod.slug },
+          props: {
+            courseTitle: course.data.title,
+            courseSlug: course.slug,
+            courseData: course.data,
+            moduleTitle: mod.title,
+            moduleSlug: mod.slug,
+            questions: mod.questions,
+          },
+        });
+      }
+    }
+  }
+
+  return paths;
+}
+
+const { courseTitle, courseSlug, courseData, moduleTitle, moduleSlug, questions } = Astro.props;
+
+// Build sequence-aware prev/next: the step before this quiz is the last
+// topic of the current module; the step after is the first topic of the
+// next module (or null if this is the final module).
+const sequence = getCourseNavSequence(courseSlug, courseData);
+const quizUrl = `/courses/${courseSlug}/${moduleSlug}/quiz`;
+const { prev, next } = getPrevNext(sequence, quizUrl);
+
+// Convert to client-safe format with isCorrect flags
+const clientQuestions = (questions as QuizQuestion[]).map((q) => ({
+  question: q.question,
+  options: q.options.map((opt, i) => ({ text: opt, isCorrect: i === q.correctIndex })),
+}));
+---
+
+<Layout title={`${moduleTitle} Quiz | ${courseTitle} | CloudNative Atlas`} description={`Test your knowledge of ${moduleTitle} from ${courseTitle}`}>
+  <div class="quiz-page">
+    <div class="container">
+
+      <!-- Breadcrumb -->
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="/courses">Courses</a>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        <a href={`/courses/${courseSlug}`}>{courseTitle}</a>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        <span>Module Quiz</span>
+      </nav>
+
+      <!-- Quiz Header -->
+      <header class="quiz-header">
+        <span class="quiz-module-label">{moduleTitle}</span>
+        <h1 class="quiz-title gradient-heading">Module Quiz</h1>
+        <p class="quiz-subtitle">{clientQuestions.length} questions to test your understanding</p>
+      </header>
+
+      <!-- Sequence navigation (prev topic / next topic) -->
+      <nav class="quiz-sequence-nav" aria-label="Course navigation" id="quiz-sequence-nav">
+        {prev ? (
+          <a href={prev.url} class="seq-link prev">
+            <span class="seq-label">Previous</span>
+            <span class="seq-title">{prev.title}</span>
+          </a>
+        ) : <div></div>}
+        {next ? (
+          <a href={next.url} class="seq-link next">
+            <span class="seq-label">Skip ahead</span>
+            <span class="seq-title">{next.title}</span>
+          </a>
+        ) : <div></div>}
+      </nav>
+
+      <!-- Quiz Area -->
+      <div class="quiz-layout">
+        <!-- Question Panel (sidebar) -->
+        <div class="quiz-panel" id="quiz-panel">
+          <div class="panel-header"><h3>Questions</h3></div>
+          <div class="panel-progress">
+            <div class="progress-bar">
+              <div class="progress-segment seg-answered" id="progress-answered"></div>
+              <div class="progress-segment seg-current" id="progress-current"></div>
+            </div>
+            <div class="progress-legend">
+              <span class="legend-chip chip-current">Current</span>
+              <span class="legend-chip chip-answered">Answered</span>
+              <span class="legend-chip chip-unanswered">Unanswered</span>
+            </div>
+          </div>
+          <div class="quiz-grid" id="quiz-grid"></div>
+          <div class="panel-summary" id="panel-summary">0 / {clientQuestions.length} answered</div>
+        </div>
+
+        <!-- Questions Content -->
+        <div class="quiz-content" id="quiz-content"></div>
+      </div>
+
+      <!-- Results (hidden initially) -->
+      <div class="quiz-results" id="quiz-results" style="display: none;">
+        <div class="results-card glass">
+          <div id="results-icon"></div>
+          <h2 id="results-title" class="gradient-heading"></h2>
+          <p id="results-subtitle"></p>
+
+          <div class="score-ring">
+            <svg viewBox="0 0 120 120" width="120" height="120">
+              <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="8" />
+              <circle id="score-ring-fill" cx="60" cy="60" r="52" fill="none" stroke="var(--primary)" stroke-width="8"
+                stroke-linecap="round" transform="rotate(-90 60 60)"
+                stroke-dasharray="0" stroke-dashoffset="0"
+                style="transition: stroke-dashoffset 1.2s ease-out;" />
+            </svg>
+            <span class="score-number"><span id="score-percentage">0</span>%</span>
+          </div>
+
+          <div class="results-stats">
+            <div class="stat correct"><span id="correct-count">0</span> Correct</div>
+            <div class="stat incorrect"><span id="incorrect-count">0</span> Incorrect</div>
+            <div class="stat skipped"><span id="skipped-count">0</span> Skipped</div>
+          </div>
+
+          <div class="results-actions">
+            <button id="review-answers" class="action-btn secondary">Review Answers</button>
+            <button id="retake-quiz" class="action-btn secondary">Retake Quiz</button>
+            <a href={`/courses/${courseSlug}`} class="action-btn secondary">Course Home</a>
+            {next ? (
+              <a href={next.url} class="action-btn primary">Continue: {next.title}</a>
+            ) : (
+              <a href={`/courses/${courseSlug}`} class="action-btn primary">Finish Course</a>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal overlay for submit confirmation -->
+  <div id="modal-overlay" class="modal-overlay" style="display: none;">
+    <div class="modal-card glass">
+      <div id="modal-icon"></div>
+      <h3 id="modal-title"></h3>
+      <p id="modal-message"></p>
+      <div class="modal-actions">
+        <button id="modal-cancel" class="action-btn secondary"></button>
+        <button id="modal-confirm" class="action-btn primary"></button>
+      </div>
+    </div>
+  </div>
+
+  <script define:vars={{ clientQuestions }}>
+    let questions = clientQuestions;
+    let currentQuestion = 0;
+    let userAnswers = {};
+    let isReviewMode = false;
+
+    // ─── MODAL ────────────────────────────────
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+
+    /**
+     * Build an SVG icon from attrs and a list of child definitions.
+     * All values come from code constants (no user input) so this is
+     * equivalent to the former innerHTML writes, just without touching
+     * the HTML parser.
+     */
+    function buildSvg(attrs, children) {
+      const svg = document.createElementNS(SVG_NS, 'svg');
+      for (const [k, v] of Object.entries(attrs)) svg.setAttribute(k, v);
+      for (const c of children) {
+        const el = document.createElementNS(SVG_NS, c.tag);
+        for (const [k, v] of Object.entries(c.attrs || {})) el.setAttribute(k, v);
+        svg.appendChild(el);
+      }
+      return svg;
+    }
+
+    const ICONS = {
+      warning: () => buildSvg(
+        { width: 40, height: 40, viewBox: '0 0 24 24', fill: 'none', stroke: '#FF9800', 'stroke-width': 2 },
+        [
+          { tag: 'path', attrs: { d: 'M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z' } },
+          { tag: 'line', attrs: { x1: 12, y1: 9, x2: 12, y2: 13 } },
+          { tag: 'line', attrs: { x1: 12, y1: 17, x2: 12.01, y2: 17 } },
+        ],
+      ),
+      check: () => buildSvg(
+        { width: 40, height: 40, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--primary)', 'stroke-width': 2 },
+        [
+          { tag: 'path', attrs: { d: 'M22 11.08V12a10 10 0 1 1-5.93-9.14' } },
+          { tag: 'polyline', attrs: { points: '22 4 12 14.01 9 11.01' } },
+        ],
+      ),
+      success: () => buildSvg(
+        { width: 48, height: 48, viewBox: '0 0 24 24', fill: 'none', stroke: '#4caf50', 'stroke-width': 2 },
+        [
+          { tag: 'path', attrs: { d: 'M22 11.08V12a10 10 0 1 1-5.93-9.14' } },
+          { tag: 'polyline', attrs: { points: '22 4 12 14.01 9 11.01' } },
+        ],
+      ),
+      fail: () => buildSvg(
+        { width: 48, height: 48, viewBox: '0 0 24 24', fill: 'none', stroke: '#f44336', 'stroke-width': 2 },
+        [
+          { tag: 'circle', attrs: { cx: 12, cy: 12, r: 10 } },
+          { tag: 'line', attrs: { x1: 15, y1: 9, x2: 9, y2: 15 } },
+          { tag: 'line', attrs: { x1: 9, y1: 9, x2: 15, y2: 15 } },
+        ],
+      ),
+    };
+
+    /**
+     * @param {string} title
+     * @param {Node|DocumentFragment} messageNode — built by caller with DOM API
+     * @param {() => Node} iconFn — factory from ICONS (deferred so each call gets a fresh SVG)
+     */
+    function showModal(title, messageNode, iconFn, onConfirm, confirmText = 'Confirm', cancelText = 'Cancel') {
+      const overlay = document.getElementById('modal-overlay');
+      const iconEl = document.getElementById('modal-icon');
+      const msgEl = document.getElementById('modal-message');
+
+      iconEl.replaceChildren(iconFn());
+      document.getElementById('modal-title').textContent = title;
+      msgEl.replaceChildren(messageNode);
+      document.getElementById('modal-confirm').textContent = confirmText;
+      document.getElementById('modal-cancel').textContent = cancelText;
+      overlay.style.display = 'flex';
+
+      const cleanup = () => {
+        overlay.style.display = 'none';
+        document.getElementById('modal-confirm').removeEventListener('click', hConfirm);
+        document.getElementById('modal-cancel').removeEventListener('click', hCancel);
+      };
+      const hConfirm = () => { cleanup(); onConfirm(); };
+      const hCancel = () => { cleanup(); };
+      document.getElementById('modal-confirm').addEventListener('click', hConfirm);
+      document.getElementById('modal-cancel').addEventListener('click', hCancel);
+    }
+
+    // ─── RENDER QUIZ ──────────────────────────
+    function renderQuiz() {
+      const content = document.getElementById('quiz-content');
+      content.replaceChildren();
+
+      questions.forEach((q, index) => {
+        const questionDiv = document.createElement('div');
+        questionDiv.className = 'question-block';
+        questionDiv.id = `question-${index}`;
+        questionDiv.style.display = index === 0 ? 'block' : 'none';
+
+        const topBar = document.createElement('div');
+        topBar.className = 'question-topbar';
+        const badge = document.createElement('span');
+        badge.className = 'question-badge';
+        badge.textContent = `Question ${index + 1} of ${questions.length}`;
+        topBar.appendChild(badge);
+
+        if (userAnswers[index] !== undefined) {
+          const tag = document.createElement('span');
+          tag.className = 'answered-tag';
+          tag.textContent = 'Answered';
+          topBar.appendChild(tag);
+        }
+        questionDiv.appendChild(topBar);
+
+        const qText = document.createElement('p');
+        qText.className = 'question-text';
+        qText.textContent = q.question;
+        questionDiv.appendChild(qText);
+
+        const optionsDiv = document.createElement('div');
+        optionsDiv.className = 'options';
+
+        q.options.forEach((option, optIndex) => {
+          const label = document.createElement('label');
+          label.className = 'option';
+          if (userAnswers[index] === optIndex) label.classList.add('selected');
+
+          const input = document.createElement('input');
+          input.type = 'radio';
+          input.name = `question-${index}`;
+          input.value = String(optIndex);
+          if (userAnswers[index] === optIndex) input.checked = true;
+
+          const letter = document.createElement('span');
+          letter.className = 'option-letter';
+          letter.textContent = String.fromCharCode(65 + optIndex);
+
+          const text = document.createElement('span');
+          text.className = 'option-text';
+          text.textContent = option.text;
+
+          label.appendChild(input);
+          label.appendChild(letter);
+          label.appendChild(text);
+          optionsDiv.appendChild(label);
+
+          input.addEventListener('change', () => {
+            userAnswers[index] = optIndex;
+            label.closest('.options').querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+            label.classList.add('selected');
+            updateQuestionGrid();
+            const existingTag = questionDiv.querySelector('.answered-tag');
+            if (!existingTag) {
+              const tag = document.createElement('span');
+              tag.className = 'answered-tag';
+              tag.textContent = 'Answered';
+              topBar.appendChild(tag);
+            }
+          });
+        });
+        questionDiv.appendChild(optionsDiv);
+
+        // Nav buttons
+        const navDiv = document.createElement('div');
+        navDiv.className = 'question-nav';
+
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'nav-btn';
+        prevBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg> Previous';
+        prevBtn.disabled = index === 0;
+        prevBtn.addEventListener('click', () => navigateQuestion(index - 1));
+
+        const counter = document.createElement('span');
+        counter.className = 'nav-counter';
+        counter.textContent = `${index + 1} / ${questions.length}`;
+
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'nav-btn';
+        nextBtn.innerHTML = 'Next <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>';
+        nextBtn.disabled = index === questions.length - 1;
+        nextBtn.addEventListener('click', () => navigateQuestion(index + 1));
+
+        // Submit button on last question
+        if (index === questions.length - 1) {
+          const submitBtn = document.createElement('button');
+          submitBtn.className = 'nav-btn submit-quiz-btn';
+          submitBtn.textContent = 'Submit Quiz';
+          submitBtn.addEventListener('click', handleSubmit);
+          navDiv.appendChild(prevBtn);
+          navDiv.appendChild(counter);
+          navDiv.appendChild(submitBtn);
+        } else {
+          navDiv.appendChild(prevBtn);
+          navDiv.appendChild(counter);
+          navDiv.appendChild(nextBtn);
+        }
+
+        questionDiv.appendChild(navDiv);
+        content.appendChild(questionDiv);
+      });
+
+      buildQuestionGrid();
+    }
+
+    // ─── QUESTION GRID ────────────────────────
+    function buildQuestionGrid() {
+      const grid = document.getElementById('quiz-grid');
+      grid.replaceChildren();
+      questions.forEach((_, index) => {
+        const btn = document.createElement('button');
+        btn.className = 'grid-btn';
+        btn.textContent = String(index + 1);
+        if (index === currentQuestion) btn.classList.add('current');
+        if (userAnswers[index] !== undefined) btn.classList.add('answered');
+        btn.addEventListener('click', () => navigateQuestion(index));
+        grid.appendChild(btn);
+      });
+    }
+
+    function updateQuestionGrid() {
+      document.querySelectorAll('.quiz-grid .grid-btn').forEach((btn, index) => {
+        btn.classList.toggle('current', index === currentQuestion);
+        btn.classList.toggle('answered', userAnswers[index] !== undefined);
+      });
+      const answered = Object.keys(userAnswers).length;
+      const total = questions.length;
+      const summary = document.getElementById('panel-summary');
+      if (summary) summary.textContent = `${answered} / ${total} answered`;
+
+      // Update progress bar
+      const pctAnswered = (answered / total) * 100;
+      const pctCurrent = (1 / total) * 100;
+      const barAnswered = document.getElementById('progress-answered');
+      const barCurrent = document.getElementById('progress-current');
+      if (barAnswered) barAnswered.style.width = `${pctAnswered}%`;
+      if (barCurrent) barCurrent.style.width = `${pctCurrent}%`;
+    }
+
+    // ─── NAVIGATION ───────────────────────────
+    function navigateQuestion(index) {
+      if (index < 0 || index >= questions.length) return;
+      document.getElementById(`question-${currentQuestion}`).style.display = 'none';
+      document.getElementById(`question-${index}`).style.display = 'block';
+      currentQuestion = index;
+      updateQuestionGrid();
+    }
+
+    // ─── SUBMIT ───────────────────────────────
+    function handleSubmit() {
+      const answered = Object.keys(userAnswers).length;
+      const unanswered = questions.length - answered;
+
+      if (unanswered > 0) {
+        // Build the rich message as DOM nodes instead of assigning HTML strings.
+        const frag = document.createDocumentFragment();
+        frag.append('You have ');
+        const strong = document.createElement('strong');
+        strong.textContent = `${unanswered} unanswered question${unanswered > 1 ? 's' : ''}`;
+        frag.append(strong, '. They will count as incorrect.',
+          document.createElement('br'), document.createElement('br'), 'Submit anyway?');
+
+        showModal('Unanswered Questions', frag, ICONS.warning,
+          () => submitQuiz(), 'Submit Anyway', 'Continue Quiz');
+      } else {
+        showModal('Submit Quiz?',
+          document.createTextNode('You have answered all questions. Ready to see your results?'),
+          ICONS.check,
+          () => submitQuiz(), 'See Results', 'Go Back');
+      }
+    }
+
+    function submitQuiz() {
+      let correctCount = 0;
+      questions.forEach((q, index) => {
+        const userAnswer = userAnswers[index];
+        if (userAnswer !== undefined && q.options[userAnswer].isCorrect) correctCount++;
+      });
+
+      const answered = Object.keys(userAnswers).length;
+      const skipped = questions.length - answered;
+      const incorrect = answered - correctCount;
+      const percentage = Math.round((correctCount / questions.length) * 100);
+      const passed = percentage >= 70;
+
+      // Show results
+      document.querySelector('.quiz-layout').style.display = 'none';
+      const seqNav = document.getElementById('quiz-sequence-nav');
+      if (seqNav) seqNav.style.display = 'none';
+      document.getElementById('quiz-results').style.display = 'block';
+
+      const resultsIconEl = document.getElementById('results-icon');
+      resultsIconEl.replaceChildren((passed ? ICONS.success : ICONS.fail)());
+
+      document.getElementById('results-title').textContent = passed ? 'Great Job!' : 'Keep Studying!';
+      document.getElementById('results-subtitle').textContent = passed
+        ? `You scored ${percentage}% on this module quiz.`
+        : `You scored ${percentage}%. Review the material and try again!`;
+
+      // Score ring
+      const ring = document.getElementById('score-ring-fill');
+      const circumference = 2 * Math.PI * 52;
+      ring.style.strokeDasharray = `${circumference}`;
+      ring.style.strokeDashoffset = `${circumference}`;
+      ring.style.stroke = passed ? '#4caf50' : '#f44336';
+      setTimeout(() => {
+        ring.style.strokeDashoffset = `${circumference - (percentage / 100) * circumference}`;
+      }, 100);
+
+      // Animate number
+      const el = document.getElementById('score-percentage');
+      const startTime = performance.now();
+      function animate(currentTime) {
+        const progress = Math.min((currentTime - startTime) / 1000, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        el.textContent = String(Math.round(percentage * eased));
+        if (progress < 1) requestAnimationFrame(animate);
+      }
+      requestAnimationFrame(animate);
+
+      document.getElementById('correct-count').textContent = String(correctCount);
+      document.getElementById('incorrect-count').textContent = String(incorrect);
+      document.getElementById('skipped-count').textContent = String(skipped);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ─── REVIEW MODE ──────────────────────────
+    function reviewAnswers() {
+      isReviewMode = true;
+      document.getElementById('quiz-results').style.display = 'none';
+      document.querySelector('.quiz-layout').style.display = 'flex';
+      document.getElementById('quiz-panel').style.display = 'none';
+      const seqNav = document.getElementById('quiz-sequence-nav');
+      if (seqNav) seqNav.style.display = 'flex';
+
+      questions.forEach((q, index) => {
+        const questionDiv = document.getElementById(`question-${index}`);
+        questionDiv.style.display = 'block';
+        const userAnswer = userAnswers[index];
+        const wasAnswered = userAnswer !== undefined;
+        const wasCorrect = wasAnswered && q.options[userAnswer].isCorrect;
+
+        const topbar = questionDiv.querySelector('.question-topbar');
+        topbar.querySelectorAll('.answered-tag, .review-status-tag').forEach(el => el.remove());
+
+        const tag = document.createElement('span');
+        tag.className = 'review-status-tag';
+        if (!wasAnswered) { tag.textContent = 'Unanswered'; tag.classList.add('status-unanswered'); }
+        else if (wasCorrect) { tag.textContent = 'Correct'; tag.classList.add('status-correct'); }
+        else { tag.textContent = 'Incorrect'; tag.classList.add('status-incorrect'); }
+        topbar.appendChild(tag);
+
+        questionDiv.querySelectorAll('.option').forEach((opt, optIndex) => {
+          opt.classList.remove('selected');
+          if (q.options[optIndex].isCorrect) opt.classList.add('correct');
+          else if (optIndex === userAnswer && !q.options[optIndex].isCorrect) opt.classList.add('incorrect');
+          opt.querySelector('input').disabled = true;
+          opt.style.cursor = 'default';
+        });
+
+        const nav = questionDiv.querySelector('.question-nav');
+        if (nav) nav.style.display = 'none';
+      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ─── INIT ─────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      renderQuiz();
+      document.getElementById('review-answers').addEventListener('click', reviewAnswers);
+      document.getElementById('retake-quiz').addEventListener('click', () => window.location.reload());
+
+      document.addEventListener('keydown', (e) => {
+        if (isReviewMode) return;
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); navigateQuestion(currentQuestion + 1); }
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); navigateQuestion(currentQuestion - 1); }
+      });
+    });
+  </script>
+</Layout>
+
+<style>
+  /* Page-specific styles (panel/grid/question/option base styles in quiz.css) */
+  .quiz-page { padding: 1rem 0 4rem; position: relative; overflow: hidden; }
+
+  .breadcrumb {
+    display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
+    margin-bottom: 1.5rem; font-size: 0.82rem; color: var(--text-secondary);
+  }
+  .breadcrumb a { color: var(--primary); text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+
+  .quiz-header { text-align: center; margin-bottom: 2.5rem; }
+  .quiz-module-label { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; color: var(--secondary); letter-spacing: 0.04em; }
+  .quiz-title { font-size: 2.5rem; margin: 0.5rem 0; }
+  .quiz-subtitle { color: var(--text-secondary); font-size: 1rem; }
+
+  .quiz-layout { display: flex; gap: 1.5rem; align-items: flex-start; }
+  .quiz-content { flex: 1; min-width: 0; }
+
+  /* Sequence nav (prev topic / next topic in the course flow) */
+  .quiz-sequence-nav {
+    display: flex; justify-content: space-between; gap: 1rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(0,229,255,0.1);
+  }
+  .seq-link {
+    display: flex; flex-direction: column; gap: 0.3rem;
+    padding: 0.8rem 1.25rem; border-radius: 10px;
+    background: rgba(255,255,255,0.03);
+    border: 1.5px solid rgba(0,229,255,0.15);
+    text-decoration: none; color: var(--text-primary);
+    transition: all 0.25s ease;
+    max-width: 48%;
+  }
+  .seq-link:hover,
+  .seq-link:focus-visible {
+    border-color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.06);
+    transform: translateY(-2px);
+    box-shadow: 0 0 20px rgba(var(--primary-rgb), 0.15);
+  }
+  .seq-link:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+  .seq-link.next { text-align: right; align-items: flex-end; margin-left: auto; }
+  .seq-label {
+    font-size: 0.68rem; text-transform: uppercase;
+    color: var(--text-secondary); font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+  .seq-title {
+    font-size: 0.88rem; font-weight: 600;
+    color: var(--primary);
+    line-height: 1.35;
+  }
+
+  /* Submit quiz button (unique to module quiz) */
+  :global(.submit-quiz-btn) {
+    background: var(--gradient-1) !important; color: var(--bg-primary) !important;
+    border: none !important; font-weight: 600;
+    box-shadow: var(--shadow-glow);
+  }
+  :global(.submit-quiz-btn:hover) { transform: translateY(-2px); box-shadow: 0 0 30px var(--glow); }
+
+  /* Results */
+  .quiz-results { padding: 2rem 0; }
+  .results-card { max-width: 500px; margin: 0 auto; padding: 3rem; text-align: center; border-radius: 16px; }
+  .results-card h2 { font-size: 2rem; margin: 1rem 0 0.5rem; }
+  .results-card p { color: var(--text-secondary); margin-bottom: 2rem; }
+
+  .score-ring { position: relative; display: inline-block; margin-bottom: 2rem; }
+  .score-number { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2rem; font-weight: 700; color: var(--text-primary); }
+
+  .results-stats { display: flex; justify-content: center; gap: 2rem; margin-bottom: 2rem; }
+  .results-stats .stat { text-align: center; font-size: 0.85rem; color: var(--text-secondary); }
+  .results-stats .stat span { display: block; font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
+  .results-stats .stat.correct span { color: #4caf50; }
+  .results-stats .stat.incorrect span { color: #f44336; }
+  .results-stats .stat.skipped span { color: #ff9800; }
+
+  .results-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+  .action-btn {
+    padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600;
+    text-decoration: none; cursor: pointer; transition: all 0.2s;
+    font-family: inherit; font-size: 0.9rem; border: none;
+  }
+  .action-btn.primary { background: var(--gradient-1); color: var(--bg-primary); box-shadow: var(--shadow-glow); }
+  .action-btn.primary:hover { transform: translateY(-2px); }
+  .action-btn.secondary { background: transparent; border: 1px solid rgba(0,229,255,0.2); color: var(--text-primary); }
+  .action-btn.secondary:hover { border-color: var(--primary); color: var(--primary); }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; display: flex; align-items: center; justify-content: center; }
+  .modal-card { max-width: 420px; width: 90%; padding: 2.5rem; text-align: center; border-radius: 16px; }
+  .modal-card h3 { font-size: 1.5rem; margin: 1rem 0 0.75rem; color: var(--text-primary); }
+  .modal-card p { color: var(--text-secondary); margin-bottom: 2rem; line-height: 1.6; }
+  .modal-actions { display: flex; gap: 1rem; justify-content: center; }
+
+  @media (max-width: 768px) {
+    .quiz-layout { flex-direction: column; }
+    .quiz-title { font-size: 1.75rem; }
+    .results-stats { gap: 1rem; }
+  }
+</style>

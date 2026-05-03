@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import StarField from '../components/StarField.astro';
+import HomeStarField from '../components/HomeStarField.astro';
+import '../styles/listing-page.css';
 import { getCollection } from 'astro:content';
 
 const posts = (await getCollection('blog'))
@@ -8,19 +9,30 @@ const posts = (await getCollection('blog'))
   .slice(0, 6);
 
 const categories = [
-  { name: 'DevOps', icon: '⚙️', color: 'devops' },
-  { name: 'Cloud', icon: '☁️', color: 'cloud' },
-  { name: 'AI', icon: '🤖', color: 'ai' },
-  { name: 'Security', icon: '🔐', color: 'security' },
+  { name: 'DevOps', icon: '⚙️', color: 'devops', desc: 'CI/CD, Containers, IaC, and Platform Engineering.' },
+  { name: 'Cloud', icon: '☁️', color: 'cloud', desc: 'AWS, Azure, GCP, and Cloud Architecture Patterns.' },
+  { name: 'AI', icon: '🤖', color: 'ai', desc: 'LLMs, ML Systems, Agents, and Practical AI Engineering.' },
+  { name: 'Security', icon: '🔐', color: 'security', desc: 'AppSec, Zero Trust, IAM, and Compliance.' },
 ];
+
+// Count content per category for the tiles.
+const categoryStats = Object.fromEntries(
+  categories.map((c) => [
+    c.name,
+    {
+      articles: posts.filter((p) => p.data.category === c.name).length,
+    },
+  ])
+);
 ---
 
 <Layout title="CloudNative Atlas - DevOps, Cloud, AI & Security">
+  <HomeStarField />
+  <div class="home-page">
   <div class="hero">
-    <StarField />
     <div class="container">
       <div class="hero-content fade-in">
-        <h1 class="hero-title">
+        <h1 class="hero-title gradient-heading">
           Welcome to <span class="gradient-text">CloudNative Atlas</span>
         </h1>
         <p class="hero-subtitle">
@@ -36,12 +48,14 @@ const categories = [
 
   <section class="categories">
     <div class="container">
-      <h2 class="section-title">Explore by Category</h2>
+      <h2 class="section-title gradient-heading">Explore by Category</h2>
       <div class="category-grid">
         {categories.map((category) => (
           <a href={`/blog?category=${category.name}`} class={`category-card ${category.color}`}>
-            <span class="category-icon">{category.icon}</span>
+            <span class="category-icon" aria-hidden="true">{category.icon}</span>
             <h3>{category.name}</h3>
+            <p class="category-desc">{category.desc}</p>
+            <span class="category-count">{categoryStats[category.name].articles} articles</span>
           </a>
         ))}
       </div>
@@ -50,15 +64,15 @@ const categories = [
 
   <section class="latest-posts">
     <div class="container">
-      <h2 class="section-title">Latest Articles</h2>
-      <div class="posts-grid">
+      <h2 class="section-title gradient-heading">Latest Articles</h2>
+      <div class="listing-grid">
         {posts.map((post) => (
-          <article class="post-card glass">
-            <div class="post-header">
+          <article class="post-card listing-card glass">
+            <div class="card-badges">
               <span class={`category-badge ${post.data.category.toLowerCase()}`}>
                 {post.data.category}
               </span>
-              <time class="post-date" datetime={post.data.pubDate.toISOString()}>
+              <time class="card-date" datetime={post.data.pubDate.toISOString()}>
                 {new Date(post.data.pubDate).toLocaleDateString('en-US', {
                   year: 'numeric',
                   month: 'short',
@@ -66,14 +80,14 @@ const categories = [
                 })}
               </time>
             </div>
-            <h3 class="post-title">
+            <h3 class="card-title">
               <a href={`/blog/${post.id}`}>{post.data.title}</a>
             </h3>
-            <p class="post-description">{post.data.description}</p>
-            <div class="post-footer">
-              <span class="post-author">By {post.data.author}</span>
-              <a href={`/blog/${post.id}`} class="read-more">
-                Read More →
+            <p class="card-desc">{post.data.description}</p>
+            <div class="card-footer">
+              <span class="card-author" title={post.data.author}>{post.data.author}</span>
+              <a href={`/blog/${post.id}`} class="card-action">
+                Read More
               </a>
             </div>
           </article>
@@ -84,9 +98,21 @@ const categories = [
       </div>
     </div>
   </section>
+  </div>
 </Layout>
 
 <style>
+  /* Home page is a navigation launcher — every visible element is either a
+     click target or a decorative heading. Disabling text selection here
+     prevents the ugly drag-highlight when users brush across cards trying
+     to click them. Content pages (blog, course topics) keep selection
+     enabled, with the brand-styled ::selection rule in global.css. */
+  .home-page,
+  .home-page * {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
   .hero {
     padding: 6rem 0;
     text-align: center;
@@ -139,35 +165,28 @@ const categories = [
     flex-wrap: wrap;
   }
 
+  /* Hero buttons inherit the site-wide pill shape + contained shadow from
+     global.css (.button / .back-button rule). Only override the bits
+     specific to the hero layout (larger padding for prominence, secondary
+     variant as transparent outline). */
   .button {
-    padding: 1rem 2rem;
-    border-radius: 10px;
-    font-weight: 600;
-    text-decoration: none;
-    transition: all 0.3s ease;
-    display: inline-block;
-  }
-
-  .button.primary {
-    background: var(--gradient-1);
-    color: var(--bg-primary);
-    box-shadow: var(--shadow-glow);
-  }
-
-  .button.primary:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 0 40px var(--glow);
+    padding: 1rem 2.25rem;
+    font-size: 1.05rem;
   }
 
   .button.secondary {
     background: transparent;
+    background-clip: padding-box;
     border: 2px solid var(--primary);
     color: var(--primary);
+    box-shadow: none;
   }
 
-  .button.secondary:hover {
-    background: var(--primary);
-    color: var(--bg-primary);
+  .button.secondary:hover,
+  .button.secondary:focus-visible {
+    background: rgba(0, 229, 255, 0.1);
+    color: var(--primary);
+    box-shadow: 0 0 14px rgba(0, 229, 255, 0.25);
   }
 
   .categories,
@@ -238,10 +257,24 @@ const categories = [
   }
 
   .category-icon {
-    font-size: 4rem;
+    font-size: 3rem;
     display: block;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
     filter: drop-shadow(0 0 10px var(--glow));
+  }
+
+  .category-desc {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    margin: 0.4rem 0 0.75rem;
+    line-height: 1.5;
+  }
+
+  .category-count {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    opacity: 0.7;
+    margin-top: auto;
   }
 
   .category-card h3 {
@@ -249,111 +282,7 @@ const categories = [
     color: var(--text-primary);
   }
 
-  .posts-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 2rem;
-  }
-
-  .post-card {
-    padding: 2rem;
-    transition: all 0.3s ease;
-  }
-
-  .post-card:hover {
-    transform: translateY(-5px);
-  }
-
-  .post-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-  }
-
-  .category-badge {
-    padding: 0.25rem 0.75rem;
-    border-radius: 6px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-  }
-
-  .category-badge.devops {
-    background: rgba(255, 149, 0, 0.2);
-    color: var(--secondary);
-  }
-
-  .category-badge.cloud {
-    background: rgba(0, 229, 255, 0.2);
-    color: var(--primary);
-  }
-
-  .category-badge.ai {
-    background: rgba(77, 159, 255, 0.2);
-    color: var(--accent);
-  }
-
-  .category-badge.security {
-    background: rgba(255, 184, 0, 0.2);
-    color: var(--security);
-  }
-
-  .post-date {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-  }
-
-  .post-title {
-    font-size: 1.5rem;
-    margin-bottom: 1rem;
-  }
-
-  .post-title a {
-    text-decoration: none;
-    background: none;
-    -webkit-background-clip: unset;
-    background-clip: unset;
-    -webkit-text-fill-color: var(--text-primary);
-    color: var(--text-primary);
-    transition: color 0.3s ease;
-  }
-
-  .post-title a:hover {
-    -webkit-text-fill-color: var(--primary);
-    color: var(--primary);
-    text-shadow: none;
-  }
-
-  .post-description {
-    color: var(--text-secondary);
-    margin-bottom: 1.5rem;
-    line-height: 1.6;
-  }
-
-  .post-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border);
-  }
-
-  .post-author {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-  }
-
-  .read-more {
-    color: var(--primary);
-    font-weight: 600;
-    text-decoration: none;
-    transition: all 0.3s ease;
-  }
-
-  .read-more:hover {
-    transform: translateX(5px);
-  }
+  /* Card internal styles now shared in listing-page.css */
 
   .view-all {
     text-align: center;
@@ -377,10 +306,6 @@ const categories = [
 
     .hero-subtitle {
       font-size: 0.95rem;
-    }
-
-    .posts-grid {
-      grid-template-columns: 1fr;
     }
 
     .category-grid {

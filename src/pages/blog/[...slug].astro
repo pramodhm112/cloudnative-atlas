@@ -1,18 +1,21 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import { getCollection } from 'astro:content';
+import FocusToggle from '../../components/FocusToggle.astro';
+import '../../styles/listing-page.css';
+import '../../styles/prose.css';
+import { getCollection, render } from 'astro:content';
 import { formatTag } from '../../utils/formatTag';
 
 export async function getStaticPaths() {
   const posts = await getCollection('blog');
-  return posts.map((post) => ({
-    params: { slug: post.slug },
+  return posts.filter((post) => post.data.status !== 'draft').map((post) => ({
+    params: { slug: post.id },
     props: post,
   }));
 }
 
 const post = Astro.props;
-const { Content } = await post.render();
+const { Content } = await render(post);
 
 const formattedDate = new Date(post.data.pubDate).toLocaleDateString('en-US', {
   year: 'numeric',
@@ -28,6 +31,7 @@ const blogPostSchema = JSON.stringify({
   "headline": post.data.title,
   "description": post.data.description,
   "datePublished": isoDate,
+  "dateModified": isoDate,
   "author": {
     "@type": "Person",
     "name": post.data.author
@@ -37,15 +41,43 @@ const blogPostSchema = JSON.stringify({
     "name": "CloudNative Atlas",
     "logo": { "@type": "ImageObject", "url": new URL('/logo.png', siteUrl).toString() }
   },
-  "mainEntityOfPage": new URL(`/blog/${post.slug}`, siteUrl).toString(),
+  "mainEntityOfPage": new URL(`/blog/${post.id}`, siteUrl).toString(),
+  "image": post.data.image ? new URL(post.data.image, siteUrl).toString() : new URL('/logo.png', siteUrl).toString(),
+  "articleSection": post.data.category,
   "keywords": post.data.tags?.join(', ') || ''
+});
+
+const breadcrumbSchema = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": siteUrl.toString() },
+    { "@type": "ListItem", "position": 2, "name": "Blog", "item": new URL('/blog', siteUrl).toString() },
+    { "@type": "ListItem", "position": 3, "name": post.data.title }
+  ]
 });
 ---
 
-<Layout title={`${post.data.title} | CloudNative Atlas`} description={post.data.description}>
+<Layout
+  title={`${post.data.title} | CloudNative Atlas`}
+  description={post.data.description}
+  ogType="article"
+  articleMeta={{
+    publishedTime: isoDate,
+    modifiedTime: isoDate,
+    author: post.data.author,
+    section: post.data.category,
+    tags: post.data.tags,
+  }}
+>
   <script type="application/ld+json" set:html={blogPostSchema} />
+  <script type="application/ld+json" set:html={breadcrumbSchema} />
   <article class="blog-post">
     <div class="container">
+      <div class="post-toolbar">
+        <FocusToggle label="Toggle focus mode for this article" />
+      </div>
+
       <header class="post-header">
         <div class="post-meta">
           <span class={`category-badge ${post.data.category.toLowerCase()}`}>
@@ -54,7 +86,7 @@ const blogPostSchema = JSON.stringify({
           <time class="post-date" datetime={isoDate}>{formattedDate}</time>
         </div>
 
-        <h1 class="post-title">{post.data.title}</h1>
+        <h1 class="post-title gradient-heading">{post.data.title}</h1>
         <p class="post-description">{post.data.description}</p>
 
         <div class="post-info">
@@ -69,13 +101,13 @@ const blogPostSchema = JSON.stringify({
         </div>
       </header>
 
-      <div class="post-content glass">
+      <div class="post-content prose glass">
         <Content />
       </div>
 
       <footer class="post-footer">
         <div class="back-link">
-          <a href="/blog" class="button">← Back to Blog</a>
+          <a href="/blog" class="back-button">Back to Blog</a>
         </div>
       </footer>
     </div>
@@ -85,6 +117,12 @@ const blogPostSchema = JSON.stringify({
 <style>
   .blog-post {
     padding: 4rem 0;
+  }
+
+  .post-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 1.5rem;
   }
 
   .post-header {
@@ -106,28 +144,6 @@ const blogPostSchema = JSON.stringify({
     padding: 0.5rem 1rem;
     border-radius: 8px;
     font-size: 0.85rem;
-    font-weight: 600;
-    text-transform: uppercase;
-  }
-
-  .category-badge.devops {
-    background: rgba(255, 149, 0, 0.2);
-    color: var(--secondary);
-  }
-
-  .category-badge.cloud {
-    background: rgba(0, 229, 255, 0.2);
-    color: var(--primary);
-  }
-
-  .category-badge.ai {
-    background: rgba(77, 159, 255, 0.2);
-    color: var(--accent);
-  }
-
-  .category-badge.security {
-    background: rgba(255, 184, 0, 0.2);
-    color: var(--security);
   }
 
   .post-date {
@@ -182,89 +198,6 @@ const blogPostSchema = JSON.stringify({
     line-height: 1.8;
   }
 
-  .post-content :global(h2) {
-    margin-top: 3rem;
-    margin-bottom: 1.5rem;
-    font-size: 2.25rem;
-    background: none;
-    -webkit-background-clip: unset;
-    background-clip: unset;
-    -webkit-text-fill-color: var(--primary);
-    font-weight: 600;
-  }
-
-  .post-content :global(h3) {
-    margin-top: 2.5rem;
-    margin-bottom: 1.25rem;
-    font-size: 1.75rem;
-    background: none;
-    -webkit-background-clip: unset;
-    background-clip: unset;
-    -webkit-text-fill-color: var(--text-primary);
-    font-weight: 500;
-  }
-
-  .post-content :global(h4) {
-    margin-top: 2rem;
-    margin-bottom: 1rem;
-    font-size: 1.4rem;
-    background: none;
-    -webkit-background-clip: unset;
-    background-clip: unset;
-    -webkit-text-fill-color: var(--text-primary);
-    font-weight: 500;
-  }
-
-  .post-content :global(p) {
-    margin-bottom: 1.5rem;
-    color: var(--text-primary);
-  }
-
-  .post-content :global(ul),
-  .post-content :global(ol) {
-    margin-bottom: 1.5rem;
-    padding-left: 2rem;
-  }
-
-  .post-content :global(li) {
-    margin-bottom: 0.75rem;
-    color: var(--text-primary);
-  }
-
-  .post-content :global(img) {
-    margin: 2rem 0;
-    border-radius: 12px;
-    box-shadow: var(--shadow-glow);
-  }
-
-  .post-content :global(blockquote) {
-    margin: 2rem 0;
-  }
-
-  .post-content :global(pre) {
-    margin: 2rem 0;
-  }
-
-  .post-content :global(table) {
-    margin: 2rem 0;
-  }
-
-  .post-content :global(a) {
-    color: var(--primary);
-    text-decoration: underline;
-    text-decoration-thickness: 2px;
-    text-underline-offset: 3px;
-  }
-
-  .post-content :global(a:hover) {
-    color: var(--secondary);
-  }
-
-  .post-content :global(strong) {
-    color: var(--text-primary);
-    font-weight: 700;
-  }
-
   .post-footer {
     margin-top: 4rem;
     padding-top: 2rem;
@@ -273,23 +206,6 @@ const blogPostSchema = JSON.stringify({
 
   .back-link {
     text-align: center;
-  }
-
-  .button {
-    display: inline-block;
-    padding: 1rem 2rem;
-    background: var(--gradient-1);
-    color: var(--bg-primary);
-    border-radius: 10px;
-    font-weight: 600;
-    text-decoration: none;
-    transition: all 0.3s ease;
-    box-shadow: var(--shadow-glow);
-  }
-
-  .button:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 0 40px var(--glow);
   }
 
   @media (max-width: 768px) {
@@ -304,14 +220,6 @@ const blogPostSchema = JSON.stringify({
     .post-content {
       padding: 1.5rem;
       font-size: 1rem;
-    }
-
-    .post-content :global(h2) {
-      font-size: 1.75rem;
-    }
-
-    .post-content :global(h3) {
-      font-size: 1.4rem;
     }
   }
 </style>

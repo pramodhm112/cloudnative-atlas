@@ -1,0 +1,818 @@
+---
+import Layout from '../../../../layouts/Layout.astro';
+import FocusToggle from '../../../../components/FocusToggle.astro';
+import '../../../../styles/prose.css';
+import { listCourses, getCourseNavSequence, getPrevNext } from '../../../../lib/course-manager';
+import type { ModuleData, TopicData } from '../../../../lib/course-manager';
+import { readSettings } from '../../../../lib/settings-manager';
+import { isPublished } from '../../../../lib/publish-status';
+import { renderMarkdown, stripLeadingTitle } from '../../../../lib/markdown';
+
+export function getStaticPaths() {
+  const courses = listCourses().filter((c) => isPublished(c.data));
+  const paths: Array<{ params: Record<string, string>; props: Record<string, unknown> }> = [];
+
+  for (const course of courses) {
+    for (const mod of course.data.modules) {
+      for (const topic of mod.topics) {
+        paths.push({
+          params: {
+            slug: course.slug,
+            moduleSlug: mod.slug,
+            topicSlug: topic.slug,
+          },
+          props: {
+            course: course.data,
+            courseSlug: course.slug,
+            module: mod,
+            topic,
+            allModules: course.data.modules,
+          },
+        });
+      }
+    }
+  }
+
+  return paths;
+}
+
+const { course, courseSlug, module: currentModule, topic, allModules } = Astro.props;
+const flags = readSettings();
+// Strip the first-line heading if it matches the topic title so we don't
+// render "What Are Containers?" twice (once as the gradient page heading,
+// once as the first line of the markdown body).
+const studyGuideMd = stripLeadingTitle(topic.studyGuide || '', topic.title);
+const studyGuideHtml = renderMarkdown(studyGuideMd);
+
+// Prev/next navigation — uses the shared course sequence so the module
+// quiz (if any) sits naturally between the last topic and the next module.
+const sequence = getCourseNavSequence(courseSlug, { ...course, modules: allModules });
+const currentUrl = `/courses/${courseSlug}/${currentModule.slug}/${topic.slug}`;
+const { prev, next } = getPrevNext(sequence, currentUrl);
+
+// ── Hierarchy helpers (Course Page Redesign — Direction 1) ──
+const sortedModules = [...allModules].sort((a: ModuleData, b: ModuleData) => a.order - b.order);
+const moduleIndex = sortedModules.findIndex((m: ModuleData) => m.slug === currentModule.slug);
+const sortedCurrentTopics = [...currentModule.topics].sort((a: TopicData, b: TopicData) => a.order - b.order);
+const topicIndex = sortedCurrentTopics.findIndex((t: TopicData) => t.slug === topic.slug);
+const totalTopicsInModule = sortedCurrentTopics.length;
+const totalTopicsInCourse = sortedModules.reduce((sum: number, m: ModuleData) => sum + m.topics.length, 0);
+
+// Reading-time estimate from the markdown source. Average 230 wpm — the
+// study guides are technical so we err slightly slow.
+const wordCount = (topic.studyGuide || '').trim().split(/\s+/).filter(Boolean).length;
+const readingMins = Math.max(1, Math.round(wordCount / 230));
+
+// Flatten module + topic ordering once so the sidebar and the JS-driven
+// progress tracker both speak the same URL list.
+const allTopicUrls = sortedModules.flatMap((m: ModuleData) =>
+  [...m.topics]
+    .sort((a: TopicData, b: TopicData) => a.order - b.order)
+    .map((t: TopicData) => `/courses/${courseSlug}/${m.slug}/${t.slug}`),
+);
+---
+
+<Layout title={`${topic.title} | ${course.title} | CloudNative Atlas`} description={`Study guide: ${topic.title} from ${currentModule.title} in ${course.title}`}>
+  <div class="topic-page" data-course-slug={courseSlug} data-current-url={currentUrl} data-total-topics={totalTopicsInCourse}>
+    <div class="container">
+      <div class="topic-layout">
+        <!-- Sidebar: Course outline + progress -->
+        <aside class="course-sidebar" id="course-sidebar">
+          <div class="sidebar-header">
+            <div class="sidebar-eyebrow">Course</div>
+            <a href={`/courses/${courseSlug}`} class="sidebar-course-title">{course.title}</a>
+            <div class="sidebar-progress" data-progress role="group" aria-label="Course progress">
+              <span class="sidebar-progress-count" data-progress-count>0/{totalTopicsInCourse}</span>
+              <div class="sidebar-progress-track" aria-hidden="true">
+                <div class="sidebar-progress-fill" data-progress-fill style="width:0%"></div>
+              </div>
+              <span class="sidebar-progress-pct" data-progress-pct>0%</span>
+            </div>
+          </div>
+          <nav class="sidebar-nav" aria-label="Course navigation">
+            {sortedModules.map((mod: ModuleData, mIdx: number) => (
+              <div class={`sidebar-module ${mod.slug === currentModule.slug ? 'active' : ''}`}>
+                <div class="sidebar-module-title">
+                  <span class="sidebar-module-num">{String(mIdx + 1).padStart(2, '0')}</span>
+                  <span class="sidebar-module-name">{mod.title}</span>
+                </div>
+                <ul class="sidebar-topics">
+                  {[...mod.topics].sort((a: TopicData, b: TopicData) => a.order - b.order).map((t: TopicData, tIdx: number) => {
+                    const tUrl = `/courses/${courseSlug}/${mod.slug}/${t.slug}`;
+                    const isCurrent = t.slug === topic.slug && mod.slug === currentModule.slug;
+                    return (
+                      <li>
+                        <a
+                          href={tUrl}
+                          data-topic-url={tUrl}
+                          class={`sidebar-topic-link ${isCurrent ? 'current' : ''}`}
+                        >
+                          <span class="sidebar-topic-num" aria-hidden="true">{tIdx + 1}</span>
+                          <span class="sidebar-topic-text">{t.title}</span>
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {mod.questions && mod.questions.length > 0 && (
+                  <a
+                    href={`/courses/${courseSlug}/${mod.slug}/quiz`}
+                    class="sidebar-module-quiz"
+                  >
+                    <span class="sidebar-quiz-icon" aria-hidden="true">★</span>
+                    <span class="sidebar-quiz-text">Module Quiz</span>
+                    <span class="sidebar-quiz-count" aria-label={`${mod.questions.length} questions`}>
+                      {mod.questions.length} Q
+                    </span>
+                  </a>
+                )}
+              </div>
+            ))}
+          </nav>
+        </aside>
+
+        <!-- Mobile sidebar toggle -->
+        <button id="sidebar-toggle" class="sidebar-toggle-mobile" aria-label="Toggle course navigation">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+
+        <!-- Main content -->
+        <main class="topic-content">
+          <!-- Breadcrumb -->
+          <nav class="breadcrumb" aria-label="Breadcrumb">
+            <a href="/courses">Courses</a>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            <a href={`/courses/${courseSlug}`}>{course.title}</a>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            <span>{currentModule.title}</span>
+          </nav>
+
+          <header class="topic-header">
+            <div class="topic-header-row">
+              <div class="topic-meta">
+                <span class="module-chip">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                  Module {moduleIndex + 1} · Topic {topicIndex + 1} of {totalTopicsInModule}
+                </span>
+                <span class="reading-time" aria-label={`${readingMins} minute read`}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  {readingMins} min read
+                </span>
+              </div>
+              <FocusToggle label="Toggle focus mode for this topic" />
+            </div>
+            <h1 class="topic-title">{topic.title}</h1>
+          </header>
+
+          <!-- Study Guide -->
+          {studyGuideHtml && (
+            <section class="study-guide glass" aria-label="Study Guide">
+              <div class="study-guide-content prose" set:html={studyGuideHtml} />
+            </section>
+          )}
+
+          <!-- Presentation (conditional) -->
+          {flags.enablePresentations && topic.presentationUrl && (
+            <section class="media-section presentation-section" aria-label="Presentation">
+              <div class="media-header">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                <h2>Presentation</h2>
+              </div>
+              <div class="media-embed glass">
+                <a href={topic.presentationUrl} target="_blank" rel="noopener noreferrer" class="media-link">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                  <span>Open Presentation</span>
+                </a>
+              </div>
+            </section>
+          )}
+
+          <!-- Video (conditional) -->
+          {flags.enableVideos && topic.videoUrl && (
+            <section class="media-section video-section" aria-label="Video">
+              <div class="media-header">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+                <h2>Video</h2>
+              </div>
+              <div class="media-embed glass">
+                <a href={topic.videoUrl} target="_blank" rel="noopener noreferrer" class="media-link">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                  <span>Watch Video</span>
+                </a>
+              </div>
+            </section>
+          )}
+
+          <!-- Prev / Next navigation (card style) -->
+          <nav class="topic-nav" aria-label="Topic navigation">
+            {prev ? (
+              <a href={prev.url} class={`nav-link prev ${prev.type === 'quiz' ? 'is-quiz' : ''}`}>
+                <span class="nav-label">← Previous</span>
+                <span class="nav-title">{prev.title}</span>
+                {prev.type === 'quiz' && <span class="nav-badge">Quiz</span>}
+              </a>
+            ) : <div></div>}
+            {next ? (
+              <a href={next.url} class={`nav-link next ${next.type === 'quiz' ? 'is-quiz' : ''}`}>
+                <span class="nav-label">{next.type === 'quiz' ? 'Check your knowledge' : 'Next →'}</span>
+                <span class="nav-title">{next.title}</span>
+                {next.type === 'quiz' && <span class="nav-badge">Quiz</span>}
+              </a>
+            ) : <div></div>}
+          </nav>
+        </main>
+
+        <!-- On-page Table of Contents — auto-built from h2 in study guide -->
+        <aside class="topic-toc" aria-label="On this page">
+          <div class="topic-toc-label">On this page</div>
+          <nav id="topic-toc-list" class="topic-toc-list">
+            <!-- Populated by client-side script reading .study-guide-content h2s -->
+          </nav>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── Sidebar mobile toggle (existing) ──
+    document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
+      document.getElementById('course-sidebar')?.classList.toggle('open');
+    });
+
+    // ── Course progress + topic completion ──
+    // Persists `course-progress:<courseSlug>` in localStorage as a JSON
+    // array of visited topic URLs. Visiting a topic page marks it visited
+    // (after a 3-second dwell so an instant bounce doesn't count). Sidebar
+    // paints checkmarks on visited topics; the progress bar fills based on
+    // visited / total.
+    (function trackProgress() {
+      const root = document.querySelector('.topic-page');
+      if (!root) return;
+      const courseSlug = (root as HTMLElement).dataset.courseSlug;
+      const currentUrl = (root as HTMLElement).dataset.currentUrl;
+      const total = parseInt((root as HTMLElement).dataset.totalTopics || '0', 10);
+      if (!courseSlug || !currentUrl || !total) return;
+
+      const STORAGE_KEY = `course-progress:${courseSlug}`;
+      let visited: string[] = [];
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) visited = parsed.filter((v) => typeof v === 'string');
+        }
+      } catch {
+        // Corrupt storage — start fresh, ignore.
+      }
+
+      function paint() {
+        // Sidebar topic links: toggle "done" class when their URL is in visited.
+        document.querySelectorAll<HTMLAnchorElement>('a[data-topic-url]').forEach((a) => {
+          if (visited.includes(a.dataset.topicUrl || '')) a.classList.add('done');
+        });
+        // Progress numbers + bar.
+        const pct = Math.round((visited.length / total) * 100);
+        const fill = document.querySelector<HTMLElement>('[data-progress-fill]');
+        const count = document.querySelector<HTMLElement>('[data-progress-count]');
+        const pctEl = document.querySelector<HTMLElement>('[data-progress-pct]');
+        if (fill) fill.style.width = `${pct}%`;
+        if (count) count.textContent = `${visited.length}/${total}`;
+        if (pctEl) pctEl.textContent = `${pct}%`;
+      }
+
+      paint();
+
+      // Mark current topic visited after a short dwell — avoids counting
+      // bounces or back-button traffic.
+      window.setTimeout(() => {
+        if (!visited.includes(currentUrl!)) {
+          visited.push(currentUrl!);
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(visited));
+          } catch {
+            // Quota or disabled — skip silently.
+          }
+          paint();
+        }
+      }, 3000);
+    })();
+
+    // ── On-page Table of Contents ──
+    // Reads h2 elements from the rendered study guide, gives each a stable
+    // id (slug-cased), and renders click-to-anchor links in the right rail.
+    // An IntersectionObserver highlights the section currently in view.
+    (function buildToc() {
+      const sg = document.querySelector('.study-guide-content');
+      const list = document.getElementById('topic-toc-list');
+      const tocAside = document.querySelector('.topic-toc');
+      if (!sg || !list || !tocAside) return;
+
+      // Pick up h2 + h3 — study guides typically use h3 for top-level
+      // sections (h1 was the topic title, stripped before rendering).
+      const headings = Array.from(sg.querySelectorAll<HTMLHeadingElement>('h2, h3'));
+      if (headings.length < 2) {
+        // Not worth rendering a TOC for one or zero sections — hide the rail.
+        (tocAside as HTMLElement).style.display = 'none';
+        return;
+      }
+
+      const slugify = (text: string) =>
+        text
+          .toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, '')
+          .trim()
+          .replace(/\s+/g, '-')
+          .slice(0, 64);
+
+      const used = new Set<string>();
+      headings.forEach((h, i) => {
+        if (!h.id) {
+          let id = slugify(h.textContent || `section-${i + 1}`) || `section-${i + 1}`;
+          let candidate = id;
+          let n = 2;
+          while (used.has(candidate)) candidate = `${id}-${n++}`;
+          h.id = candidate;
+          used.add(candidate);
+        }
+        const a = document.createElement('a');
+        a.href = `#${h.id}`;
+        a.textContent = h.textContent || '';
+        a.className = `topic-toc-link level-${h.tagName.toLowerCase()}`;
+        a.dataset.targetId = h.id;
+        list.appendChild(a);
+      });
+
+      // Highlight active section while scrolling. -45%/-55% root margin keeps
+      // a single section "active" near the top third of the viewport.
+      const links = list.querySelectorAll<HTMLAnchorElement>('a[data-target-id]');
+      const byId = new Map<string, HTMLAnchorElement>();
+      links.forEach((a) => byId.set(a.dataset.targetId || '', a));
+
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (!e.isIntersecting) return;
+            byId.forEach((a) => a.classList.remove('active'));
+            byId.get(e.target.id)?.classList.add('active');
+          });
+        },
+        { rootMargin: '-45% 0px -55% 0px', threshold: 0 },
+      );
+      headings.forEach((h) => io.observe(h));
+    })();
+  </script>
+</Layout>
+
+<style>
+  .topic-page { padding: 1rem 0 4rem; }
+
+  /* 3-column layout per Direction 1: sidebar | content | TOC.
+     Drops to 2-col (sidebar | content) at < 1200px, then sidebar
+     collapses to a mobile sheet at < 1024px. */
+  .topic-layout {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr) 220px;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  /* Sidebar */
+  .course-sidebar {
+    position: sticky; top: 80px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(0,229,255,0.08);
+    border-radius: 12px;
+    padding: 1rem;
+  }
+
+  .sidebar-header { margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid rgba(0,229,255,0.1); }
+  .sidebar-eyebrow {
+    font-size: 0.65rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--text-secondary); opacity: 0.7;
+    margin-bottom: 0.25rem;
+  }
+  .sidebar-course-title {
+    display: block;
+    font-size: 1.05rem; font-weight: 700;
+    color: var(--text-primary); text-decoration: none;
+    margin-bottom: 0.85rem;
+  }
+  .sidebar-course-title:hover { color: var(--primary); }
+
+  /* Course-level progress: count + thin gradient bar + percentage. */
+  .sidebar-progress {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.5rem 0.7rem;
+    background: rgba(0, 229, 255, 0.04);
+    border: 1px solid rgba(0, 229, 255, 0.1);
+    border-radius: 8px;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+  .sidebar-progress-track {
+    flex: 1;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .sidebar-progress-fill {
+    height: 100%;
+    background: var(--gradient-1);
+    border-radius: 2px;
+    transition: width 0.4s ease;
+  }
+  .sidebar-progress-pct { font-weight: 600; color: var(--primary); }
+
+  .sidebar-module { margin-bottom: 1.25rem; }
+  .sidebar-module:last-child { margin-bottom: 0.25rem; }
+  .sidebar-module-title {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 0.7rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--text-secondary); opacity: 0.85;
+    margin-bottom: 0.55rem; padding: 0 0.25rem;
+  }
+  .sidebar-module-num {
+    width: 18px; height: 18px;
+    border-radius: 4px;
+    background: rgba(0, 229, 255, 0.08);
+    color: var(--primary);
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 0.62rem; font-weight: 600;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .sidebar-module.active .sidebar-module-num {
+    background: rgba(0, 229, 255, 0.18);
+  }
+  .sidebar-module.active .sidebar-module-name { color: var(--primary); }
+
+  .sidebar-topics { list-style: none; padding: 0; margin: 0; }
+  .sidebar-topics li { margin: 0.1rem 0; }
+
+  .sidebar-topic-link {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.5rem 0.65rem;
+    font-size: 0.85rem; line-height: 1.35;
+    color: var(--text-secondary);
+    text-decoration: none; border-radius: 6px;
+    transition: background-color 0.15s, color 0.15s;
+    border-left: 2px solid transparent;
+  }
+  .sidebar-topic-link:hover {
+    color: var(--text-primary);
+    background: rgba(0, 229, 255, 0.05);
+  }
+  .sidebar-topic-link:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
+    background: rgba(0, 229, 255, 0.08);
+  }
+
+  /* Numbered circle next to each topic — neutral by default, primary on
+     active, green-checkmark when the topic has been visited (set by JS). */
+  .sidebar-topic-num {
+    width: 18px; height: 18px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 1.5px solid var(--text-secondary);
+    color: var(--text-secondary);
+    background: transparent;
+    font-size: 0.6rem; font-weight: 600;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: border-color 0.15s, color 0.15s, background-color 0.15s;
+  }
+
+  .sidebar-topic-link.current {
+    color: var(--primary);
+    background: rgba(0, 229, 255, 0.08);
+    font-weight: 600;
+    border-left-color: var(--primary);
+    padding-left: calc(0.65rem - 2px);
+  }
+  .sidebar-topic-link.current .sidebar-topic-num {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .sidebar-topic-link.done .sidebar-topic-num {
+    background: rgba(76, 175, 80, 0.2);
+    border-color: #4caf50;
+    color: transparent;          /* hide the number */
+    position: relative;
+  }
+  .sidebar-topic-link.done .sidebar-topic-num::after {
+    content: '✓';
+    color: #4caf50;
+    font-size: 0.7rem;
+    font-family: inherit;
+    font-weight: 700;
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .sidebar-topic-link.done .sidebar-topic-text {
+    color: var(--text-secondary);
+  }
+
+  .sidebar-topic-text { line-height: 1.35; }
+
+  /* Sidebar Module Quiz — visually distinct from topics (warm accent)
+     so it reads as a checkpoint, not just another bullet. */
+  /* Module quiz row — same shape as a topic link but with the "warm" /
+     star treatment so it reads as a checkpoint. */
+  .sidebar-module-quiz {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.5rem 0.65rem;
+    margin-top: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    text-decoration: none;
+    border-radius: 6px;
+    transition: background-color 0.15s, transform 0.15s;
+  }
+  .sidebar-module-quiz:hover {
+    background: rgba(255, 149, 0, 0.08);
+  }
+  .sidebar-module-quiz:focus-visible {
+    outline: 2px solid var(--secondary);
+    outline-offset: -2px;
+    background: rgba(255, 149, 0, 0.1);
+  }
+  .sidebar-quiz-icon {
+    width: 18px; height: 18px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: rgba(255, 149, 0, 0.15);
+    border: 1.5px solid var(--secondary);
+    color: var(--secondary);
+    font-size: 0.7rem;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .sidebar-quiz-text { flex: 1; font-weight: 600; }
+  .sidebar-quiz-count {
+    font-size: 0.65rem; font-weight: 700;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    padding: 0.1rem 0.4rem;
+    background: rgba(255, 149, 0, 0.1);
+    color: var(--secondary);
+    border-radius: 4px;
+    letter-spacing: 0.02em;
+  }
+
+  .sidebar-toggle-mobile { display: none; }
+
+  /* Main content */
+  .topic-content { flex: 1; min-width: 0; }
+
+  .breadcrumb {
+    display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
+    margin-bottom: 1.5rem; font-size: 0.82rem; color: var(--text-secondary);
+  }
+  .breadcrumb a { color: var(--primary); text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+
+  .topic-header { margin-bottom: 2rem; }
+  .topic-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.85rem;
+    flex-wrap: wrap;
+  }
+  .topic-meta {
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  }
+  .module-chip {
+    display: inline-flex; align-items: center; gap: 0.45rem;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.78rem; font-weight: 600;
+    color: var(--secondary);
+    background: rgba(var(--secondary-rgb), 0.1);
+    border: 1px solid rgba(var(--secondary-rgb), 0.25);
+    border-radius: 100px;
+    letter-spacing: 0.02em;
+  }
+  .module-chip svg { opacity: 0.9; }
+  .reading-time {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+  }
+  .reading-time svg { opacity: 0.7; }
+
+  /* Solid title — no gradient. The page already has plenty of accent
+     colour (module pill, primary cyan in body); a gradient title was the
+     biggest visual-hierarchy issue called out in the redesign brief. */
+  .topic-title {
+    font-size: clamp(1.6rem, 3vw, 2.1rem);
+    line-height: 1.25;
+    color: var(--text-primary);
+    margin-top: 0;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  /* Study guide — content sits in a glass panel matching the blog post layout */
+  .study-guide {
+    margin-bottom: 2.5rem;
+    padding: 2.5rem;
+    border-radius: 14px;
+  }
+
+  .study-guide :global(.prose h1) { font-size: 1.8rem; margin: 2rem 0 1rem; }
+  .study-guide :global(.prose h2) { font-size: 1.4rem; margin: 1.75rem 0 0.75rem; }
+  .study-guide :global(.prose h3) { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
+  .study-guide :global(.prose p) { line-height: 1.7; margin-bottom: 1rem; color: var(--text-secondary); }
+  .study-guide :global(.prose ul), .study-guide :global(.prose ol) { margin: 0.5rem 0 1rem 1.5rem; color: var(--text-secondary); }
+  .study-guide :global(.prose li) { margin-bottom: 0.35rem; line-height: 1.6; }
+  .study-guide :global(.prose code) { background: rgba(0,229,255,0.08); padding: 0.15rem 0.4rem; border-radius: 4px; font-family: 'Fira Code', monospace; font-size: 0.85em; color: var(--primary); }
+  .study-guide :global(.prose pre) { background: var(--bg-secondary); border: 1px solid rgba(0,229,255,0.1); border-radius: 10px; padding: 1.25rem; overflow-x: auto; margin: 1rem 0 1.5rem; }
+  .study-guide :global(.prose pre code) { background: none; padding: 0; font-size: 0.85rem; color: var(--text-primary); }
+  .study-guide :global(.prose blockquote) { border-left: 3px solid var(--primary); padding: 0.75rem 1rem; margin: 1rem 0; background: rgba(0,229,255,0.04); border-radius: 0 8px 8px 0; }
+  .study-guide :global(.prose img) { max-width: 100%; border-radius: 8px; margin: 1rem 0; }
+  .study-guide :global(.prose hr) { border: none; border-top: 1px solid rgba(0,229,255,0.1); margin: 2rem 0; }
+
+  /* Media sections */
+  .media-section { margin-bottom: 2rem; }
+  .media-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; color: var(--text-primary); }
+  .media-header h2 { font-size: 1.15rem; }
+
+  .media-embed { padding: 2rem; border-radius: 12px; text-align: center; }
+  .media-link {
+    display: inline-flex; align-items: center; gap: 0.75rem;
+    padding: 0.75rem 1.5rem; border-radius: 10px;
+    background: rgba(0,229,255,0.1); border: 1px solid rgba(0,229,255,0.2);
+    color: var(--primary); text-decoration: none; font-weight: 500;
+    transition: all 0.2s;
+  }
+  .media-link:hover { background: rgba(0,229,255,0.15); transform: translateY(-2px); }
+
+  /* Prev/Next nav — 2-column grid of cards. Each card stretches to fill
+     its half so the pair always sit shoulder-to-shoulder regardless of
+     title length. */
+  .topic-nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.85rem;
+    padding-top: 1.5rem; margin-top: 2.5rem;
+    border-top: 1px solid rgba(0, 229, 255, 0.1);
+  }
+
+  .nav-link {
+    display: flex; flex-direction: column; gap: 0.3rem;
+    padding: 0.85rem 1rem; border-radius: 10px;
+    background: rgba(15, 30, 56, 0.5);
+    border: 1px solid rgba(0, 229, 255, 0.1);
+    text-decoration: none; color: var(--text-primary);
+    transition: border-color 0.2s, background-color 0.2s, transform 0.2s;
+    position: relative;
+  }
+  .nav-link:hover,
+  .nav-link:focus-visible {
+    border-color: rgba(0, 229, 255, 0.28);
+    background: rgba(0, 229, 255, 0.04);
+    transform: translateY(-1px);
+  }
+  .nav-link:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+  .nav-link.next { text-align: right; align-items: flex-end; }
+
+  .nav-label {
+    font-size: 0.7rem; text-transform: uppercase;
+    color: var(--text-secondary); font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+  .nav-title {
+    font-size: 0.95rem; font-weight: 600;
+    color: var(--primary);
+    line-height: 1.35;
+  }
+
+  /* Quiz-stop variant — warm accent so quizzes stand out in the flow */
+  .nav-link.is-quiz {
+    background: linear-gradient(
+      135deg,
+      rgba(var(--secondary-rgb), 0.06),
+      rgba(var(--primary-rgb), 0.05)
+    );
+    border-color: rgba(var(--secondary-rgb), 0.3);
+  }
+  .nav-link.is-quiz:hover {
+    border-color: var(--secondary);
+    box-shadow: 0 0 20px rgba(var(--secondary-rgb), 0.2);
+  }
+  .nav-link.is-quiz .nav-title { color: var(--secondary); }
+
+  .nav-badge {
+    display: inline-block;
+    align-self: flex-start;
+    margin-top: 0.25rem;
+    padding: 0.15rem 0.5rem;
+    background: rgba(var(--secondary-rgb), 0.15);
+    color: var(--secondary);
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .nav-link.next .nav-badge { align-self: flex-end; }
+
+  /* ─── On-page Table of Contents ─── */
+  .topic-toc {
+    position: sticky; top: 80px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    padding: 0.25rem 0;
+    font-size: 0.82rem;
+  }
+  .topic-toc-label {
+    font-size: 0.7rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--text-secondary); opacity: 0.85;
+    margin-bottom: 0.6rem;
+    padding: 0 0.6rem;
+  }
+  .topic-toc-list {
+    display: flex; flex-direction: column;
+    border-left: 1px solid rgba(0, 229, 255, 0.08);
+  }
+  .topic-toc-link {
+    display: block;
+    padding: 0.4rem 0.75rem;
+    margin-left: -1px;       /* sit on top of the list border */
+    border-left: 2px solid transparent;
+    color: var(--text-secondary);
+    text-decoration: none;
+    line-height: 1.4;
+    transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+  }
+  .topic-toc-link:hover {
+    color: var(--text-primary);
+    background: rgba(0, 229, 255, 0.03);
+  }
+  .topic-toc-link.active {
+    color: var(--primary);
+    border-left-color: var(--primary);
+    background: rgba(0, 229, 255, 0.05);
+  }
+  /* When both h2 and h3 are picked up, indent the h3s so the hierarchy
+     reads visually. When only one level is present, both classes share
+     the same rendering (cosmetic null-op). */
+  .topic-toc-link.level-h3 {
+    padding-left: 1.5rem;
+    font-size: 0.78rem;
+  }
+
+  /* ─── Responsive ─── */
+
+  /* Drop the on-page TOC at < 1200px (it would crush the content column). */
+  @media (max-width: 1199px) {
+    .topic-layout {
+      grid-template-columns: 280px minmax(0, 1fr);
+    }
+    .topic-toc { display: none; }
+  }
+
+  @media (max-width: 1024px) {
+    .topic-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .course-sidebar {
+      position: fixed; top: 0; left: -320px; z-index: 100;
+      width: 300px; height: 100vh; max-height: 100vh;
+      border-radius: 0; background: var(--bg-primary);
+      border: none; border-right: 1px solid rgba(0,229,255,0.1);
+      transition: left 0.3s ease;
+      padding: 1.5rem;
+    }
+    .course-sidebar.open { left: 0; }
+
+    .sidebar-toggle-mobile {
+      display: flex; align-items: center; justify-content: center;
+      position: fixed; bottom: 1.5rem; left: 1.5rem; z-index: 90;
+      width: 48px; height: 48px;
+      background: var(--primary); color: var(--bg-primary);
+      border: none; border-radius: 50%; cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0,229,255,0.3);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .topic-title { font-size: 1.5rem; }
+    .topic-nav {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .nav-link { max-width: 100%; }
+    .nav-link.next { text-align: left; margin-left: 0; align-items: flex-start; }
+  }
+</style>

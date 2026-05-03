@@ -1,0 +1,431 @@
+---
+import Layout from '../layouts/Layout.astro';
+import SearchableSelect from '../components/SearchableSelect.astro';
+import { COUNTRIES_BY_NAME } from '../data/countries';
+
+// Dial-code combobox. Haystack covers the numeric code, ISO code, and country
+// name so users can type +91, 91, IN, or "india" (case-insensitive substring).
+// The trigger and option text get a compact font via .phone-row .ssel CSS
+// below — fits 250+ entries comfortably without truncation.
+const dialOptions = COUNTRIES_BY_NAME.map((c) => ({
+  value: `+${c.dial}`,
+  label: `+${c.dial}  ${c.code}  ${c.name}`,
+  search: `+${c.dial} ${c.dial} ${c.code} ${c.name}`,
+}));
+
+// Country combobox — search by ISO code OR name.
+const countryOptions = COUNTRIES_BY_NAME.map((c) => ({
+  value: c.code,
+  label: c.name,
+  search: `${c.code} ${c.name}`,
+}));
+---
+
+<Layout
+  title="Contact Us | CloudNative Atlas"
+  description="Get in touch with the CloudNative Atlas team."
+>
+  <section class="contact-page">
+    <div class="container">
+      <header class="contact-header">
+        <h1 class="page-title gradient-heading">Contact Us</h1>
+        <p class="page-subtitle">
+          Have a question, suggestion, or partnership idea? Send us a note and we'll get back to you.
+        </p>
+      </header>
+
+      <form id="contact-form" class="contact-form glass" novalidate>
+        <!-- Honeypot — visually hidden, must stay empty. Bots that auto-fill every
+             input will trip this and the server will reject. -->
+        <div class="hp-field" aria-hidden="true">
+          <label for="website">Website (do not fill)</label>
+          <input type="text" id="website" name="website" tabindex="-1" autocomplete="off" />
+        </div>
+
+        <div class="form-row two-col">
+          <div class="field">
+            <label for="firstName">First Name <span class="req">*</span></label>
+            <input
+              type="text"
+              id="firstName"
+              name="firstName"
+              required
+              maxlength="50"
+              autocomplete="given-name"
+              placeholder="Jane"
+            />
+            <p class="field-error" id="firstName-error" role="alert"></p>
+          </div>
+
+          <div class="field">
+            <label for="lastName">Last Name <span class="req">*</span></label>
+            <input
+              type="text"
+              id="lastName"
+              name="lastName"
+              required
+              maxlength="50"
+              autocomplete="family-name"
+              placeholder="Doe"
+            />
+            <p class="field-error" id="lastName-error" role="alert"></p>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="email">Email <span class="req">*</span></label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            required
+            maxlength="254"
+            autocomplete="email"
+            placeholder="jane.doe@example.com"
+          />
+          <p class="field-error" id="email-error" role="alert"></p>
+        </div>
+
+        <div class="field">
+          <label for="mobile">Mobile Number <span class="req">*</span></label>
+          <div class="phone-row">
+            <SearchableSelect
+              name="dialCode"
+              placeholder="Code"
+              options={dialOptions}
+              ariaLabel="Country dial code"
+              required
+            />
+            <input
+              type="tel"
+              id="mobile"
+              name="mobile"
+              required
+              inputmode="numeric"
+              maxlength="14"
+              autocomplete="tel-national"
+              placeholder="9876543210"
+            />
+          </div>
+          <p class="field-warning" id="mobile-warning" role="status"></p>
+          <p class="field-error" id="mobile-error" role="alert"></p>
+        </div>
+
+        <div class="field">
+          <label for="country">Country <span class="req">*</span></label>
+          <SearchableSelect
+            name="country"
+            placeholder="Search by name"
+            options={countryOptions}
+            ariaLabel="Country"
+            required
+          />
+          <p class="field-error" id="country-error" role="alert"></p>
+        </div>
+
+        <div class="field">
+          <label for="message">Message <span class="req">*</span></label>
+          <textarea
+            id="message"
+            name="message"
+            required
+            minlength="10"
+            maxlength="2000"
+            rows="6"
+            placeholder="What would you like to tell us?"
+          ></textarea>
+          <p class="field-help"><span id="message-count">0</span> / 2000</p>
+          <p class="field-error" id="message-error" role="alert"></p>
+        </div>
+
+        <div id="form-status" class="form-status" role="status" aria-live="polite"></div>
+
+        <div class="form-actions">
+          <button type="submit" id="submit-btn" class="back-button">Send message</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <script>
+    const form = document.getElementById('contact-form') as HTMLFormElement;
+    const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+    const status = document.getElementById('form-status') as HTMLElement;
+    const messageInput = document.getElementById('message') as HTMLTextAreaElement;
+    const messageCount = document.getElementById('message-count') as HTMLElement;
+    const mobileInput = document.getElementById('mobile') as HTMLInputElement;
+    const mobileWarn = document.getElementById('mobile-warning') as HTMLElement;
+
+    // Live char counter
+    messageInput.addEventListener('input', () => {
+      messageCount.textContent = String(messageInput.value.length);
+    });
+
+    // Mobile field — soft warning the moment a non-digit is typed.
+    // We don't auto-strip; the user keeps full control. Length checks are
+    // left to the server-side validator on submit.
+    mobileInput.addEventListener('input', () => {
+      const v = mobileInput.value;
+      if (v !== '' && /\D/.test(v)) {
+        mobileWarn.textContent = 'Only digits 0–9 are accepted';
+      } else {
+        mobileWarn.textContent = '';
+      }
+    });
+
+    function clearErrors() {
+      form.querySelectorAll('.field-error').forEach((el) => (el.textContent = ''));
+      status.textContent = '';
+      status.className = 'form-status';
+    }
+
+    function showFieldError(field: string, msg: string) {
+      const el = document.getElementById(`${field}-error`);
+      if (el) el.textContent = msg;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearErrors();
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Sending…';
+
+      const fd = new FormData(form);
+      const payload = Object.fromEntries(fd.entries());
+
+      try {
+        const res = await fetch('/api/contact', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          success?: boolean;
+          error?: string;
+          code?: string;
+        };
+
+        if (res.ok && data.success) {
+          status.className = 'form-status form-status-success';
+          status.textContent = 'Thanks — your message has been recorded. We\'ll be in touch.';
+          form.reset();
+          messageCount.textContent = '0';
+        } else if (res.status === 429) {
+          status.className = 'form-status form-status-error';
+          status.textContent =
+            data.error || 'Too many submissions. Please try again later.';
+        } else if (data.error) {
+          status.className = 'form-status form-status-error';
+          // Best-effort: surface the raw error. Schema errors come back like
+          // "Invalid body: firstName: Invalid first name; email: Invalid email format"
+          status.textContent = data.error;
+          // Try to associate any per-field bits with their inputs.
+          if (data.code === 'INVALID_BODY') {
+            const segments = (data.error || '').replace(/^Invalid body:\s*/, '').split(';');
+            for (const seg of segments) {
+              const m = /^\s*(\w+):\s*(.+)$/.exec(seg);
+              if (m) showFieldError(m[1], m[2]);
+            }
+          }
+        } else {
+          status.className = 'form-status form-status-error';
+          status.textContent = 'Something went wrong. Please try again.';
+        }
+      } catch {
+        status.className = 'form-status form-status-error';
+        status.textContent = 'Network error. Please check your connection and try again.';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Send message';
+      }
+    });
+  </script>
+</Layout>
+
+<style>
+  .contact-page {
+    padding: 3rem 0 5rem;
+  }
+
+  .contact-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+
+  .page-title {
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .page-subtitle {
+    color: var(--text-secondary);
+    font-size: 1.05rem;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .contact-form {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 2.5rem;
+    border-radius: 14px;
+  }
+
+  /* Honeypot — completely invisible to humans, still in the DOM for bots */
+  .hp-field {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+
+  .form-row.two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 1.25rem;
+  }
+
+  .field label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.45rem;
+  }
+
+  .req {
+    color: var(--secondary);
+    margin-left: 0.15rem;
+  }
+
+  .field input,
+  .field textarea {
+    padding: 0.7rem 0.9rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1.5px solid rgba(var(--primary-rgb), 0.18);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-family: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .field input:focus,
+  .field textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.15);
+  }
+
+  .field textarea {
+    resize: vertical;
+    min-height: 120px;
+    font-family: inherit;
+  }
+
+  .phone-row {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 0.6rem;
+    align-items: start;
+  }
+
+  /* Compact font + ellipsis so the dial-code trigger stays readable even
+     when its label is long (e.g. "+1  TC  Turks and Caicos Islands").
+     :global(...) reaches into the SearchableSelect's scoped styles. */
+  .phone-row :global(.ssel-trigger),
+  .phone-row :global(.ssel-display) {
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .phone-row :global(.ssel-display) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .phone-row :global(.ssel-option) {
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Soft inline warning — yellow, less alarming than the red error.
+     Only shown while the user is typing and inputs aren't yet valid. */
+  .field-warning {
+    font-size: 0.82rem;
+    color: #fbbf24;
+    margin: 0.4rem 0 0;
+    min-height: 0;
+  }
+
+  .field-warning:empty {
+    margin: 0;
+  }
+
+  .field-error {
+    font-size: 0.82rem;
+    color: #f87171;
+    margin: 0.35rem 0 0;
+    min-height: 1em;
+  }
+
+  /* Native <select> dark-theme fallback (used elsewhere; safety net here). */
+  select option {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+  }
+
+  .form-status {
+    margin: 1rem 0;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.92rem;
+    min-height: 1em;
+  }
+
+  .form-status:empty {
+    padding: 0;
+    margin: 0;
+  }
+
+  .form-status-success {
+    background: rgba(76, 175, 80, 0.1);
+    color: #6ee7b7;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+  }
+
+  .form-status-error {
+    background: rgba(244, 67, 54, 0.08);
+    color: #fca5a5;
+    border: 1px solid rgba(244, 67, 54, 0.25);
+  }
+
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+  }
+
+  @media (max-width: 600px) {
+    .form-row.two-col {
+      grid-template-columns: 1fr;
+    }
+
+    .phone-row {
+      grid-template-columns: 110px 1fr;
+    }
+
+    .contact-form {
+      padding: 1.5rem;
+    }
+
+    .page-title {
+      font-size: 2rem;
+    }
+  }
+</style>

@@ -1,0 +1,82 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Search from '../../components/Search.astro';
+import ListingHeader from '../../components/ListingHeader.astro';
+import CategoryFilter from '../../components/CategoryFilter.astro';
+import '../../styles/listing-page.css';
+import { listCourses } from '../../lib/course-manager';
+import { formatTag } from '../../utils/formatTag';
+import { isPublished } from '../../lib/publish-status';
+import { computeCategoryCounts } from '../../utils/categoryCounts';
+
+const courses = listCourses()
+  .filter((c) => isPublished(c.data))
+  .sort((a, b) => a.data.title.localeCompare(b.data.title));
+const categories = ['All', 'DevOps', 'Cloud', 'AI', 'Security'];
+const categoryCounts = computeCategoryCounts(courses, (c) => c.data.category);
+---
+
+<Layout title="Courses | CloudNative Atlas" description="Master cloud-native technologies with structured courses covering DevOps, Cloud, AI, and Security.">
+  <ListingHeader
+    title="Courses"
+    subtitle="Master cloud-native technologies with structured, self-paced study guides organized into modules and topics."
+  >
+    <Search
+      placeholder="Search courses..."
+      endpoint="/api/courses.json"
+      urlPrefix="/courses"
+      variant="meta"
+      notFoundText="No courses found"
+    />
+    <CategoryFilter categories={categories} itemLabel="courses" counts={categoryCounts} total={courses.length} />
+  </ListingHeader>
+
+  <section class="listing-content">
+    <div class="container">
+      {courses.length === 0 ? (
+        <div class="no-results-state">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+          <h3>No courses yet</h3>
+          <p>Courses will appear here once they are published.</p>
+        </div>
+      ) : (
+        <div class="listing-grid">
+          {courses.map((course) => {
+            const topicCount = course.data.modules.reduce((sum, m) => sum + m.topics.length, 0);
+            return (
+              <article class="course-card listing-card glass" data-category={course.data.category}>
+                <div class="card-badges">
+                  <span class={`category-badge ${course.data.category.toLowerCase()}`}>{course.data.category}</span>
+                  <span class={`difficulty-badge ${course.data.difficulty.toLowerCase()}`}>{course.data.difficulty}</span>
+                </div>
+                <h2 class="card-title">
+                  <a href={`/courses/${course.slug}`}>{course.data.title}</a>
+                </h2>
+                <p class="card-desc">{course.data.description}</p>
+                {course.data.tags.length > 0 && (
+                  <div class="card-tags">
+                    {course.data.tags.slice(0, 4).map(tag => (
+                      <span class="tag">{formatTag(tag)}</span>
+                    ))}
+                  </div>
+                )}
+                <div class="card-footer">
+                  <span class="card-author">{course.data.modules.length} modules · {topicCount} topics</span>
+                  <a href={`/courses/${course.slug}`} class="card-action">
+                    View Course
+                  </a>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  </section>
+</Layout>
+
+
+<script>
+  import { initCategoryFilter } from '../../scripts/category-filter';
+  initCategoryFilter('.course-card');
+</script>

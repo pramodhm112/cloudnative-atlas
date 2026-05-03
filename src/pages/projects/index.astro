@@ -1,0 +1,72 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Search from '../../components/Search.astro';
+import ListingHeader from '../../components/ListingHeader.astro';
+import CategoryFilter from '../../components/CategoryFilter.astro';
+import '../../styles/listing-page.css';
+import { getCollection } from 'astro:content';
+import { formatTag } from '../../utils/formatTag';
+import { isPublished } from '../../lib/publish-status';
+import { computeCategoryCounts } from '../../utils/categoryCounts';
+
+const allProjects = (await getCollection('projects'))
+  .filter((project) => isPublished(project.data))
+  .sort((a, b) => new Date(b.data.pubDate).getTime() - new Date(a.data.pubDate).getTime());
+
+const categories = ['All', 'DevOps', 'Cloud', 'AI', 'Security'];
+const categoryCounts = computeCategoryCounts(allProjects, (p) => p.data.category);
+---
+
+<Layout title="Projects - CloudNative Atlas" description="Hands-on projects with step-by-step guides for DevOps, Cloud, AI, and Security">
+  <ListingHeader title="Projects" subtitle="Hands-on projects with step-by-step deployment guides, commands, and architecture walkthroughs">
+    <Search
+      placeholder="Search projects..."
+      endpoint="/api/projects.json"
+      urlPrefix="/projects"
+      variant="difficulty"
+      notFoundText="No projects found"
+    />
+    <CategoryFilter categories={categories} itemLabel="projects" counts={categoryCounts} total={allProjects.length} />
+  </ListingHeader>
+
+  <section class="listing-content">
+    <div class="container">
+      <div class="listing-grid">
+        {allProjects.map((project) => (
+          <article class="project-card listing-card glass" data-category={project.data.category}>
+            <div class="card-badges">
+              <span class={`category-badge ${project.data.category.toLowerCase()}`}>
+                {project.data.category}
+              </span>
+              <span class={`difficulty-badge ${project.data.difficulty.toLowerCase()}`}>
+                {project.data.difficulty}
+              </span>
+            </div>
+            <h2 class="card-title">
+              <a href={`/projects/${project.slug}`}>{project.data.title}</a>
+            </h2>
+            <p class="card-desc">{project.data.description}</p>
+            {project.data.tags && project.data.tags.length > 0 && (
+              <div class="card-tags">
+                {project.data.tags.map((tag) => (
+                  <span class="tag">{formatTag(tag)}</span>
+                ))}
+              </div>
+            )}
+            <div class="card-footer">
+              <span class="card-author" title={project.data.author}>{project.data.author}</span>
+              <a href={`/projects/${project.slug}`} class="card-action">
+                View Project
+              </a>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<script>
+  import { initCategoryFilter } from '../../scripts/category-filter';
+  initCategoryFilter('.project-card');
+</script>

@@ -1,59 +1,51 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import TestSearch from '../../components/TestSearch.astro';
-import StarField from '../../components/StarField.astro';
+import Search from '../../components/Search.astro';
+import ListingHeader from '../../components/ListingHeader.astro';
+import CategoryFilter from '../../components/CategoryFilter.astro';
+import '../../styles/listing-page.css';
 import { getCollection } from 'astro:content';
 import { formatTag } from '../../utils/formatTag';
+import { isPublished } from '../../lib/publish-status';
+import { computeCategoryCounts } from '../../utils/categoryCounts';
 
-const tests = await getCollection('tests');
+// Client-side category filter handles the category buttons via `?category=`,
+// so the page just needs the full published list up-front.
+const tests = (await getCollection('tests')).filter((t) => isPublished(t.data));
 
 const categories = ['All', 'DevOps', 'Cloud', 'AI', 'Security'];
-const categoryParam = Astro.url.searchParams.get('category');
-
-const filteredTests = categoryParam
-  ? tests.filter((test) => test.data.category === categoryParam)
-  : tests;
+const categoryCounts = computeCategoryCounts(tests, (t) => t.data.category);
 ---
 
 <Layout
   title="Practice Tests - CloudNative Atlas"
   description="Test your knowledge with our comprehensive practice exams"
 >
-  <div class="tests-header">
-    <StarField />
+  <ListingHeader
+    title="Practice Tests"
+    subtitle="Challenge yourself with comprehensive multiple-choice exams and track your progress"
+  >
+    <Search
+      placeholder="Search practice tests..."
+      endpoint="/api/tests.json"
+      urlPrefix="/practice-tests"
+      variant="difficulty"
+      notFoundText="No tests found"
+    />
+    <CategoryFilter categories={categories} itemLabel="tests" counts={categoryCounts} total={tests.length} />
+  </ListingHeader>
+
+  <section class="listing-content">
     <div class="container">
-      <h1 class="page-title">Practice Tests</h1>
-      <p class="page-subtitle">
-        Challenge yourself with comprehensive multiple-choice exams and track your progress
-      </p>
-
-      <TestSearch />
-
-      <div class="category-filter" role="group" aria-label="Filter tests by category">
-        {categories.map((category) => (
-          <button
-            class="filter-btn"
-            data-category={category}
-            aria-label={`Filter by ${category}`}
-          >
-            {category}
-          </button>
-        ))}
-      </div>
-    </div>
-  </div>
-
-  <section class="tests-content">
-    <div class="container">
-      {filteredTests.length === 0 ? (
-        <div class="no-tests">
+      {tests.length === 0 ? (
+        <div class="no-results-state">
           <p>No tests available in this category. Check back soon!</p>
         </div>
       ) : (
-        <div class="tests-grid">
-          {filteredTests.map((test) => (
-            <article class="test-card glass" data-category={test.data.category}>
-              <div class="test-header">
+        <div class="listing-grid">
+          {tests.map((test) => (
+            <article class="test-card listing-card glass" data-category={test.data.category}>
+              <div class="card-badges">
                 <span class={`category-badge ${test.data.category.toLowerCase()}`}>
                   {test.data.category}
                 </span>
@@ -62,11 +54,11 @@ const filteredTests = categoryParam
                 </span>
               </div>
 
-              <h2 class="test-title">{test.data.title}</h2>
-              <p class="test-description">{test.data.description}</p>
+              <h2 class="card-title">{test.data.title}</h2>
+              <p class="card-desc">{test.data.description}</p>
 
               {test.data.tags && test.data.tags.length > 0 && (
-                <div class="test-tags">
+                <div class="card-tags">
                   {test.data.tags.map((tag) => (
                     <span class="tag">{formatTag(tag)}</span>
                   ))}
@@ -76,7 +68,7 @@ const filteredTests = categoryParam
               <div class="test-meta">
                 {test.data.timeLimit && (
                   <div class="meta-item">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <circle cx="12" cy="12" r="10"></circle>
                       <polyline points="12 6 12 12 16 14"></polyline>
                     </svg>
@@ -84,7 +76,7 @@ const filteredTests = categoryParam
                   </div>
                 )}
                 <div class="meta-item">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                     <polyline points="14 2 14 8 20 8"></polyline>
                   </svg>
@@ -92,8 +84,8 @@ const filteredTests = categoryParam
                 </div>
               </div>
 
-              <a href={`/practice-tests/${test.slug}`} class="start-test-btn">
-                Start Test →
+              <a href={`/practice-tests/${test.id}`} class="start-test-btn">
+                Start Test
               </a>
             </article>
           ))}
@@ -104,178 +96,7 @@ const filteredTests = categoryParam
 </Layout>
 
 <style>
-  .tests-header {
-    padding: 4rem 0 3rem;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .tests-header .container {
-    position: relative;
-    z-index: 1;
-  }
-
-  .page-title {
-    font-size: 3.5rem;
-    margin-bottom: 1rem;
-    overflow-wrap: break-word;
-  }
-
-  .page-subtitle {
-    font-size: 1.25rem;
-    color: var(--text-secondary);
-    margin-bottom: 2rem;
-    max-width: 700px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .tests-header :global(.search-container) {
-    margin-bottom: 2rem;
-  }
-
-  .category-filter {
-    margin-top: 2rem;
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-
-  .filter-btn {
-    padding: 0.75rem 1.5rem;
-    background: transparent;
-    border: 2px solid var(--primary);
-    border-radius: 10px;
-    color: var(--primary);
-    text-decoration: none;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    cursor: pointer;
-    font-size: 1rem;
-    font-family: inherit;
-  }
-
-  .filter-btn:hover {
-    background: rgba(0, 229, 255, 0.1);
-    transform: translateY(-2px);
-  }
-
-  .filter-btn.active {
-    background: var(--gradient-1);
-    border: 2px solid transparent;
-    border-radius: 10px;
-    padding: 0.75rem 1.5rem;
-    color: #0B2540;
-    font-weight: 700;
-    box-shadow:
-      0 0 30px rgba(0, 229, 255, 0.4),
-      0 0 50px rgba(255, 149, 0, 0.2),
-      0 4px 15px rgba(0, 0, 0, 0.3);
-  }
-
-  .tests-content {
-    padding: 2rem 0 4rem;
-  }
-
-  .tests-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 2rem;
-  }
-
-  .test-card {
-    padding: 2rem;
-    display: flex;
-    flex-direction: column;
-    transition: all 0.3s ease;
-    animation: fadeIn 0.6s ease-out;
-  }
-
-  .test-card:hover {
-    transform: translateY(-5px);
-  }
-
-  .test-header {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .category-badge,
-  .difficulty-badge {
-    padding: 0.25rem 0.75rem;
-    border-radius: 6px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-  }
-
-  .category-badge.devops {
-    background: rgba(255, 149, 0, 0.2);
-    color: var(--secondary);
-  }
-
-  .category-badge.cloud {
-    background: rgba(0, 229, 255, 0.2);
-    color: var(--primary);
-  }
-
-  .category-badge.ai {
-    background: rgba(77, 159, 255, 0.2);
-    color: var(--accent);
-  }
-
-  .category-badge.security {
-    background: rgba(255, 184, 0, 0.2);
-    color: var(--security);
-  }
-
-  .difficulty-badge.beginner {
-    background: rgba(76, 175, 80, 0.2);
-    color: #4caf50;
-  }
-
-  .difficulty-badge.intermediate {
-    background: rgba(255, 152, 0, 0.2);
-    color: #ff9800;
-  }
-
-  .difficulty-badge.advanced {
-    background: rgba(244, 67, 54, 0.2);
-    color: #f44336;
-  }
-
-  .test-title {
-    font-size: 1.5rem;
-    margin-bottom: 1rem;
-    background: none;
-    -webkit-background-clip: unset;
-    background-clip: unset;
-    -webkit-text-fill-color: var(--text-primary);
-    color: var(--text-primary);
-  }
-
-  .test-description {
-    color: var(--text-secondary);
-    margin-bottom: 1rem;
-    line-height: 1.6;
-    flex-grow: 1;
-  }
-
-  .test-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-  }
-
-  .tag {
-    font-size: 0.85rem;
-    color: var(--primary);
-    opacity: 0.7;
-  }
+  /* Practice-tests-specific (shared card styles in listing-page.css) */
 
   .test-meta {
     display: flex;
@@ -314,77 +135,9 @@ const filteredTests = categoryParam
     transform: translateY(-2px);
     box-shadow: 0 0 30px var(--glow);
   }
-
-  .no-tests {
-    text-align: center;
-    padding: 4rem 2rem;
-    color: var(--text-secondary);
-  }
-
-  @media (max-width: 1024px) {
-    .page-title {
-      font-size: 2.25rem;
-    }
-
-    .page-subtitle {
-      font-size: 1.05rem;
-    }
-  }
-
-  @media (max-width: 768px) {
-    .page-title {
-      font-size: 1.75rem;
-    }
-
-    .page-subtitle {
-      font-size: 0.95rem;
-    }
-
-    .tests-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .category-filter {
-      gap: 0.5rem;
-    }
-
-    .filter-btn {
-      padding: 0.5rem 1rem;
-      font-size: 0.9rem;
-    }
-  }
 </style>
 
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const filterButtons = document.querySelectorAll('.filter-btn');
-    const testCards = document.querySelectorAll('.test-card');
-
-    // Set the initial active state to "All"
-    filterButtons.forEach(btn => {
-      if (btn.getAttribute('data-category') === 'All') {
-        btn.classList.add('active');
-      }
-    });
-
-    filterButtons.forEach(button => {
-      button.addEventListener('click', () => {
-        const category = button.getAttribute('data-category');
-
-        // Update active state
-        filterButtons.forEach(btn => btn.classList.remove('active'));
-        button.classList.add('active');
-
-        // Filter tests
-        testCards.forEach(card => {
-          const cardCategory = card.getAttribute('data-category');
-          if (category === 'All' || cardCategory === category) {
-            card.style.display = 'block';
-          } else {
-            card.style.display = 'none';
-          }
-        });
-      });
-    });
-  });
+  import { initCategoryFilter } from '../../scripts/category-filter';
+  initCategoryFilter('.test-card', false);
 </script>

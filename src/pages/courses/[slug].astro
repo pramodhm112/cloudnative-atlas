@@ -1,0 +1,240 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import '../../styles/listing-page.css';
+import { listCourses } from '../../lib/course-manager';
+import type { ModuleData, TopicData } from '../../lib/course-manager';
+import { readSettings } from '../../lib/settings-manager';
+import { isPublished } from '../../lib/publish-status';
+import { formatTag } from '../../utils/formatTag';
+
+export function getStaticPaths() {
+  const courses = listCourses().filter((c) => isPublished(c.data));
+  return courses.map((course) => ({
+    params: { slug: course.slug },
+    props: { course: course.data, slug: course.slug },
+  }));
+}
+
+const { course, slug } = Astro.props;
+const flags = readSettings();
+const totalTopics = course.modules.reduce((sum: number, m: ModuleData) => sum + m.topics.length, 0);
+---
+
+<Layout title={`${course.title} | CloudNative Atlas`} description={course.description}>
+  <div class="course-overview">
+    <div class="container">
+      <!-- Breadcrumb -->
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="/courses">Courses</a>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        <span>{course.title}</span>
+      </nav>
+
+      <header class="course-header">
+        <div class="course-meta">
+          <span class={`category-badge ${course.category.toLowerCase()}`}>{course.category}</span>
+          <span class={`difficulty-badge ${course.difficulty.toLowerCase()}`}>{course.difficulty}</span>
+        </div>
+        <h1 class="course-title gradient-heading">{course.title}</h1>
+        <p class="course-description">{course.description}</p>
+
+        <div class="course-stats">
+          <div class="stat-item">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+            <span>{course.modules.length} Modules</span>
+          </div>
+          <div class="stat-item">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            <span>{totalTopics} Topics</span>
+          </div>
+        </div>
+
+        {course.tags && course.tags.length > 0 && (
+          <div class="course-tags">
+            {course.tags.map((tag: string) => (
+              <span class="tag">{formatTag(tag)}</span>
+            ))}
+          </div>
+        )}
+      </header>
+
+      <!-- Modules list -->
+      <div class="modules-list">
+        <h2 class="modules-heading gradient-heading">Course Curriculum</h2>
+
+        {course.modules.length === 0 ? (
+          <div class="empty-modules glass">
+            <p>This course has no modules yet. Check back soon!</p>
+          </div>
+        ) : (
+          course.modules.sort((a: ModuleData, b: ModuleData) => a.order - b.order).map((mod: ModuleData, mi: number) => (
+            <div class="module-card glass">
+              <div class="module-card-header">
+                <h3 class="module-name gradient-heading"><span class="module-number">Module {mi + 1}:</span> {mod.title}</h3>
+                {mod.description && <p class="module-desc">{mod.description}</p>}
+              </div>
+              <div class="topics-list">
+                {mod.topics.sort((a: TopicData, b: TopicData) => a.order - b.order).map((topic: TopicData, ti: number) => (
+                  <a href={`/courses/${slug}/${mod.slug}/${topic.slug}`} class="topic-item">
+                    <span class="topic-number">{ti + 1}</span>
+                    <span class="topic-title">{topic.title}</span>
+                    <div class="topic-indicators">
+                      {topic.studyGuide && (
+                        <span class="indicator" title="Study Guide">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                        </span>
+                      )}
+                      {flags.enablePresentations && topic.presentationUrl && (
+                        <span class="indicator presentation" title="Presentation">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                        </span>
+                      )}
+                      {flags.enableVideos && topic.videoUrl && (
+                        <span class="indicator video" title="Video">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                        </span>
+                      )}
+                    </div>
+                    <svg class="topic-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  </a>
+                ))}
+              </div>
+
+              {mod.questions && mod.questions.length > 0 && (
+                <a href={`/courses/${slug}/${mod.slug}/quiz`} class="topic-item quiz-item">
+                  <span class="topic-number quiz-number" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <polyline points="9 11 12 14 22 4"></polyline>
+                      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                    </svg>
+                  </span>
+                  <span class="topic-title">Module Quiz</span>
+                  <span class="quiz-meta">{mod.questions.length} questions</span>
+                  <svg class="topic-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </a>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      <div class="back-wrapper">
+        <a href="/courses" class="back-button">Back to Courses</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .course-overview { padding: 2rem 0 4rem; }
+
+  .breadcrumb {
+    display: flex; align-items: center; gap: 0.5rem;
+    margin-bottom: 2rem; font-size: 0.85rem; color: var(--text-secondary);
+  }
+  .breadcrumb a { color: var(--primary); text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+
+  .course-header { text-align: center; margin-bottom: 3rem; }
+  .course-meta { display: flex; gap: 0.75rem; justify-content: center; margin-bottom: 1rem; }
+  .course-title { font-size: 2.25rem; margin-bottom: 0.75rem; line-height: 1.3; }
+  .course-description { color: var(--text-secondary); font-size: 1.05rem; max-width: 650px; margin: 0 auto 1.5rem; line-height: 1.6; }
+
+  .course-stats { display: flex; gap: 2rem; justify-content: center; margin-bottom: 1rem; }
+  .stat-item { display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); font-size: 0.95rem; }
+
+  .course-tags { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+
+  .modules-heading { font-size: 1.5rem; margin-bottom: 1.5rem; }
+
+  .module-card { border-radius: 12px; overflow: hidden; margin-bottom: 1.25rem; }
+
+  .module-card-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(0,229,255,0.08); }
+  .module-number { font-weight: 700; color: var(--primary); }
+  .module-name { font-size: 1.15rem; margin: 0; }
+  .module-desc { color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.35rem; line-height: 1.5; }
+
+  .topics-list { padding: 0.75rem 0; }
+
+  .topic-item {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 1rem 1.5rem;
+    text-decoration: none; color: var(--text-primary);
+    transition: background 0.15s;
+    border-bottom: 1px solid rgba(0,229,255,0.04);
+  }
+  .topic-item:last-child { border-bottom: none; }
+  .topic-item:hover { background: rgba(var(--primary-rgb), 0.05); }
+  .topic-item:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
+    background: rgba(var(--primary-rgb), 0.08);
+  }
+  .topic-item.quiz-item:focus-visible {
+    outline-color: var(--secondary);
+    background: rgba(var(--secondary-rgb), 0.12);
+  }
+
+  .topic-number {
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,229,255,0.1); border-radius: 8px;
+    font-size: 0.78rem; font-weight: 700; color: var(--primary);
+    flex-shrink: 0;
+  }
+
+  .topic-title { flex: 1; font-size: 0.95rem; line-height: 1.4; }
+
+  .topic-indicators { display: flex; gap: 0.4rem; }
+  .indicator { color: var(--text-secondary); opacity: 0.6; }
+  .indicator.presentation { color: var(--secondary); opacity: 0.8; }
+  .indicator.video { color: #4caf50; opacity: 0.8; }
+
+  .topic-arrow { color: var(--text-secondary); opacity: 0.4; flex-shrink: 0; }
+
+  .empty-modules { padding: 2rem; text-align: center; color: var(--text-secondary); border-radius: 12px; }
+
+  /* Quiz item — same shape as a topic row but with a warm accent so
+     students spot the checkpoint at a glance. Sits at the end of the
+     module's topic list, separated by a dashed divider. */
+  .topic-item.quiz-item {
+    border-top: 1px dashed rgba(var(--secondary-rgb), 0.2);
+    background: linear-gradient(90deg, rgba(var(--secondary-rgb), 0.03), transparent);
+  }
+  .topic-item.quiz-item:hover {
+    background: linear-gradient(
+      90deg,
+      rgba(var(--secondary-rgb), 0.08),
+      rgba(var(--primary-rgb), 0.04)
+    );
+  }
+  .topic-number.quiz-number {
+    background: rgba(var(--secondary-rgb), 0.12);
+    color: var(--secondary);
+  }
+  .topic-item.quiz-item .topic-title {
+    color: var(--secondary);
+    font-weight: 600;
+  }
+  .quiz-meta {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    padding: 0.15rem 0.6rem;
+    background: rgba(var(--secondary-rgb), 0.08);
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  .back-wrapper {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    text-align: center;
+    border-top: 1px solid rgba(var(--primary-rgb), 0.1);
+  }
+
+  @media (max-width: 768px) {
+    .course-title { font-size: 1.75rem; }
+    .topic-item { padding: 0.65rem 1rem; }
+    .course-stats { gap: 1rem; }
+  }
+</style>
