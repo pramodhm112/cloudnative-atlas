@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancel superseded runs on the same branch — saves CI minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck (non-blocking; ~133 pre-existing errors to clean up incrementally)
+        run: npm run typecheck
+        continue-on-error: true
+
+      - name: Lint (warnings only; non-blocking)
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Format check (warnings only; non-blocking)
+        run: npm run format:check
+        continue-on-error: true
+
+      - name: Build
+        run: npm run build
+
+      - name: Tests
+        run: npm test
+
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: npm audit (high+)
+        # Fail the job on high or critical. We currently accept one moderate
+        # vuln in @astrojs/node (Server Islands DoS — feature we don't use,
+        # documented in SECURITY.md). Bump back to moderate after Astro 6
+        # upgrade allows @astrojs/node@^10.
+        run: npm audit --audit-level=high
