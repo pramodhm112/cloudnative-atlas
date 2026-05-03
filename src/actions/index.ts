@@ -8,6 +8,15 @@ import {
   contentExists,
   serializeQuestions,
 } from '../lib/content-manager';
+import {
+  writeCourse,
+  readCourse,
+  deleteCourse,
+  generateSlug as generateCourseSlug,
+  courseExists,
+} from '../lib/course-manager';
+import type { CourseData } from '../lib/course-manager';
+import { writeSettings } from '../lib/settings-manager';
 
 const slugSchema = z.string().regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/, 'Invalid slug');
 const categorySchema = z.enum(['DevOps', 'Cloud', 'AI', 'Security']);
@@ -18,6 +27,23 @@ const questionSchema = z.object({
   question: z.string().min(1),
   options: z.array(z.string().min(1)),
   correctIndex: z.number().int().min(0),
+});
+
+const topicInputSchema = z.object({
+  slug: z.string(),
+  title: z.string(),
+  studyGuide: z.string().default(''),
+  presentationUrl: z.string().optional(),
+  videoUrl: z.string().optional(),
+  order: z.number().int().min(0),
+});
+
+const moduleInputSchema = z.object({
+  slug: z.string(),
+  title: z.string(),
+  description: z.string().default(''),
+  order: z.number().int().min(0),
+  topics: z.array(topicInputSchema).default([]),
 });
 
 export const server = {
@@ -196,6 +222,90 @@ export const server = {
           throw new ActionError({ code: 'NOT_FOUND', message: 'Test not found' });
         }
         return { success: true };
+      },
+    }),
+  },
+
+  courses: {
+    create: defineAction({
+      input: z.object({
+        title: z.string().min(1),
+        description: z.string().min(1),
+        category: categorySchema,
+        difficulty: difficultySchema,
+        tags: z.array(z.string()).default([]),
+        modules: z.array(moduleInputSchema).default([]),
+        status: statusSchema.default('draft'),
+      }),
+      handler: async (input) => {
+        let slug = generateCourseSlug(input.title);
+        if (courseExists(slug)) {
+          slug = `${slug}-${Date.now().toString(36)}`;
+        }
+        const courseData: CourseData = {
+          title: input.title,
+          description: input.description,
+          category: input.category,
+          difficulty: input.difficulty,
+          tags: input.tags,
+          modules: input.modules,
+          status: input.status,
+        };
+        writeCourse(slug, courseData);
+        return { slug };
+      },
+    }),
+
+    update: defineAction({
+      input: z.object({
+        slug: slugSchema,
+        title: z.string().optional(),
+        description: z.string().optional(),
+        category: categorySchema.optional(),
+        difficulty: difficultySchema.optional(),
+        tags: z.array(z.string()).optional(),
+        modules: z.array(moduleInputSchema).optional(),
+        status: statusSchema.optional(),
+      }),
+      handler: async (input) => {
+        const existing = readCourse(input.slug);
+        if (!existing) {
+          throw new ActionError({ code: 'NOT_FOUND', message: 'Course not found' });
+        }
+        const courseData: CourseData = {
+          title: input.title || existing.data.title,
+          description: input.description || existing.data.description,
+          category: input.category || existing.data.category,
+          difficulty: input.difficulty || existing.data.difficulty,
+          tags: input.tags ?? existing.data.tags,
+          modules: input.modules ?? existing.data.modules,
+          status: input.status ?? existing.data.status ?? 'published',
+        };
+        writeCourse(input.slug, courseData);
+        return { slug: input.slug };
+      },
+    }),
+
+    delete: defineAction({
+      input: z.object({ slug: slugSchema }),
+      handler: async ({ slug }) => {
+        const deleted = deleteCourse(slug);
+        if (!deleted) {
+          throw new ActionError({ code: 'NOT_FOUND', message: 'Course not found' });
+        }
+        return { success: true };
+      },
+    }),
+  },
+
+  settings: {
+    update: defineAction({
+      input: z.object({
+        enablePresentations: z.boolean().optional(),
+        enableVideos: z.boolean().optional(),
+      }),
+      handler: async (input) => {
+        return writeSettings(input);
       },
     }),
   },

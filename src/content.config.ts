@@ -34,8 +34,8 @@ const topicSchema = z.object({
   slug: z.string(),
   title: z.string(),
   studyGuide: z.string().default(''),
-  presentationUrl: z.string().url().optional().or(z.literal('')),
-  videoUrl: z.string().url().optional().or(z.literal('')),
+  presentationUrl: z.url().optional().or(z.literal('')),
+  videoUrl: z.url().optional().or(z.literal('')),
   order: z.number().int().min(0).default(0),
 });
 
