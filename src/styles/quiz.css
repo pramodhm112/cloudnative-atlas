@@ -1,0 +1,399 @@
+/* ==========================================================================
+   Shared Quiz UI Styles
+   Used by: practice-tests/[...slug].astro, courses/[slug]/[moduleSlug]/quiz.astro
+   Import in frontmatter: import '../../styles/quiz.css';
+   ========================================================================== */
+
+/* ---------- Question Panel (sidebar) ---------- */
+
+.quiz-panel,
+.question-panel {
+  width: 280px;
+  flex-shrink: 0;
+  background: rgba(10, 14, 39, 0.6);
+  border: 1px solid rgba(0, 229, 255, 0.12);
+  border-radius: 12px;
+  padding: 1.25rem;
+  position: sticky;
+  top: 5.5rem;
+  overflow: hidden;
+  box-sizing: border-box;
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.08);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.panel-header h3 {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+/* ---------- Progress Bar ---------- */
+
+.panel-progress {
+  margin-bottom: 1rem;
+}
+
+.progress-bar {
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  margin-bottom: 0.6rem;
+}
+
+.progress-segment {
+  height: 100%;
+  transition: width 0.3s ease;
+  min-width: 0;
+}
+
+.progress-segment.seg-answered { background: #4caf50; }
+.progress-segment.seg-marked   { background: #ff9800; }
+.progress-segment.seg-current  { background: var(--primary); }
+
+.progress-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  letter-spacing: 0.01em;
+}
+
+.legend-chip.chip-current {
+  background: rgba(0, 229, 255, 0.1);
+  color: var(--primary);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+}
+
+.legend-chip.chip-answered {
+  background: rgba(76, 175, 80, 0.1);
+  color: #4caf50;
+  border: 1px solid rgba(76, 175, 80, 0.2);
+}
+
+.legend-chip.chip-unanswered {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.legend-chip.chip-marked {
+  background: rgba(255, 152, 0, 0.1);
+  color: #ff9800;
+  border: 1px solid rgba(255, 152, 0, 0.2);
+}
+
+/* ---------- Question Grid ---------- */
+
+.question-grid,
+.quiz-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.grid-btn {
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  text-align: center;
+  min-width: 0;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.grid-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: rgba(0, 229, 255, 0.05);
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.2);
+}
+
+.grid-btn.current {
+  background: rgba(0, 229, 255, 0.12);
+  border-color: var(--primary);
+  color: var(--primary);
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.25);
+}
+
+.grid-btn.answered {
+  background: rgba(76, 175, 80, 0.12);
+  border-color: rgba(76, 175, 80, 0.25);
+  color: #4caf50;
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.15);
+}
+
+.grid-btn.current.answered {
+  background: rgba(76, 175, 80, 0.2);
+  border-color: #4caf50;
+  box-shadow: 0 0 14px rgba(76, 175, 80, 0.25);
+}
+
+.grid-btn.marked {
+  background: rgba(255, 152, 0, 0.12);
+  border-color: rgba(255, 152, 0, 0.25);
+  color: #ff9800;
+  box-shadow: 0 0 10px rgba(255, 152, 0, 0.15);
+}
+
+.grid-btn.current.marked {
+  background: rgba(255, 152, 0, 0.2);
+  border-color: #ff9800;
+  box-shadow: 0 0 14px rgba(255, 152, 0, 0.25);
+}
+
+.grid-btn.answered.marked {
+  background: rgba(255, 152, 0, 0.12);
+  border-color: rgba(255, 152, 0, 0.25);
+  color: #ff9800;
+  position: relative;
+}
+
+.grid-btn.answered.marked::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 5px;
+  height: 5px;
+  background: #4caf50;
+  border-radius: 50%;
+}
+
+.panel-summary {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(0, 229, 255, 0.06);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* Large desktop — wider panel, 5-column grid */
+@media (min-width: 1440px) {
+  .question-panel,
+  .quiz-panel {
+    width: 300px;
+  }
+
+  .question-grid,
+  .quiz-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+/* ---------- Question Blocks ---------- */
+
+.question-block {
+  background: rgba(10, 14, 39, 0.5);
+  border: 1px solid rgba(0, 229, 255, 0.08);
+  border-radius: 14px;
+  padding: 2rem;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), 0 0 30px rgba(0, 229, 255, 0.04);
+}
+
+.question-topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.question-badge {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: rgba(0, 229, 255, 0.08);
+  padding: 0.3rem 0.75rem;
+  border-radius: 6px;
+}
+
+.answered-tag {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #4caf50;
+  background: rgba(76, 175, 80, 0.1);
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.question-text {
+  font-size: 1.15rem;
+  margin-bottom: 1.5rem;
+  color: var(--text-primary);
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+/* ---------- Options ---------- */
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border: 2px solid rgba(0, 229, 255, 0.1);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.25s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.option:hover {
+  border-color: rgba(0, 229, 255, 0.25);
+  background: rgba(0, 229, 255, 0.03);
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.12), 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.option.selected {
+  border-color: var(--primary);
+  background: rgba(0, 229, 255, 0.08);
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.2), 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.option.correct {
+  border-color: #4caf50;
+  background: rgba(76, 175, 80, 0.1);
+  box-shadow: 0 0 16px rgba(76, 175, 80, 0.2), 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.option.incorrect {
+  border-color: #f44336;
+  background: rgba(244, 67, 54, 0.1);
+  box-shadow: 0 0 16px rgba(244, 67, 54, 0.15), 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.option input[type="radio"] {
+  display: none;
+}
+
+.option-letter {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 229, 255, 0.08);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.option.selected .option-letter { background: var(--primary); color: var(--bg-primary); }
+.option.correct .option-letter { background: #4caf50; color: #fff; }
+.option.incorrect .option-letter { background: #f44336; color: #fff; }
+
+.option-text {
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+/* ---------- Question Navigation ---------- */
+
+.question-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(0, 229, 255, 0.08);
+}
+
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  font-size: 0.9rem;
+  box-shadow: none;
+}
+
+.nav-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.nav-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.nav-counter {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* ---------- Review Status Tags ---------- */
+
+.review-status-tag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.25rem 0.7rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.status-correct { color: #4caf50; background: rgba(76, 175, 80, 0.12); }
+.status-incorrect { color: #f44336; background: rgba(244, 67, 54, 0.12); }
+.status-unanswered { color: #ff9800; background: rgba(255, 152, 0, 0.12); }
+.status-flagged { color: #ff9800; background: rgba(255, 152, 0, 0.12); }
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 768px) {
+  .quiz-panel,
+  .question-panel {
+    width: 100%;
+    position: static;
+  }
+
+  .question-block {
+    padding: 1.5rem;
+  }
+}

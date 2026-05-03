@@ -1,0 +1,236 @@
+/* ==========================================================================
+   Prose / Markdown content styles
+   --------------------------------------------------------------------------
+   Used by:
+     • src/pages/blog/[...slug].astro       — long-form articles
+     • src/pages/courses/.../[topicSlug].astro — study guides
+     • Any other long-form .prose container
+   Import in frontmatter: import '../../styles/prose.css';
+
+   Readability targets (best practices):
+     • Body line-height 1.75 — comfortable rhythm for long reading
+     • Paragraph spacing equals body line-height for visual breath
+     • 65–80ch optimal line length — handled by the page wrapper
+     • Heading line-height 1.25 — tighter so multi-line titles read as one
+     • Subtle code styling that doesn't compete with body text
+   ========================================================================== */
+
+.prose {
+  font-size: 1.05rem;
+  line-height: 1.75;
+  color: var(--text-primary);
+}
+
+/* ---------- Headings ---------- */
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
+  line-height: 1.25;
+  scroll-margin-top: 5rem;        /* anchor links don't slip under sticky nav */
+  text-wrap: balance;             /* avoid orphan words on multi-line titles */
+}
+
+.prose h2 {
+  margin-top: 3rem;
+  margin-bottom: 1.25rem;
+  font-size: 2rem;
+  color: var(--primary);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.prose h3 {
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.prose h4 {
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  font-size: 1.2rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* First heading shouldn't push down — the page already has a title above. */
+.prose > :first-child {
+  margin-top: 0;
+}
+
+/* ---------- Body Text ---------- */
+
+.prose p {
+  margin: 0 0 1.5rem;
+  color: var(--text-primary);
+}
+
+.prose ul,
+.prose ol {
+  margin: 0 0 1.5rem;
+  padding-left: 1.75rem;
+}
+
+.prose li {
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
+
+.prose li::marker {
+  color: var(--primary);
+}
+
+.prose strong {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.prose em {
+  color: var(--text-primary);
+}
+
+.prose hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 3rem 0;
+}
+
+/* ---------- Links ---------- */
+
+.prose a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  transition: color 0.2s ease, text-decoration-color 0.2s ease;
+}
+
+.prose a:hover {
+  color: var(--secondary);
+}
+
+/* ---------- Media ---------- */
+
+.prose img {
+  display: block;
+  margin: 2rem auto;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 229, 255, 0.12);
+  /* Match the toned-down code-block treatment — no big halo. */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  max-width: 100%;
+}
+
+.prose figure {
+  margin: 2rem 0;
+}
+
+.prose figcaption {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-top: 0.75rem;
+}
+
+/* ---------- Block Elements ---------- */
+
+.prose blockquote {
+  margin: 2rem 0;
+  padding: 1rem 1.5rem;
+  border-left: 3px solid var(--primary);
+  background: rgba(0, 229, 255, 0.04);
+  border-radius: 0 8px 8px 0;
+  color: var(--text-primary);
+  font-style: italic;
+}
+
+.prose blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+.prose pre {
+  margin: 2rem 0;
+}
+
+/* Inline-code reads as code, not as a generic chip. The pill background
+   has been dropped to a subtle tint in global.css; here we just guarantee
+   it sizes down a touch relative to surrounding body copy. */
+.prose :not(pre) > code {
+  font-size: 0.875em;
+}
+
+/* ---------- Tables ---------- */
+
+.prose table {
+  width: 100%;
+  margin: 2rem 0;
+  border-collapse: collapse;
+  border: 1px solid var(--border);
+  border-radius: 10px;            /* match site-wide table radius (global.css) */
+  overflow: hidden;
+  font-size: 0.95rem;
+}
+
+.prose th,
+.prose td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.prose th {
+  background: rgba(0, 229, 255, 0.08);
+  color: var(--primary);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.prose tbody tr:hover {
+  background: rgba(0, 229, 255, 0.03);
+}
+
+.prose tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 768px) {
+  .prose {
+    font-size: 1rem;
+    line-height: 1.7;
+  }
+
+  .prose h2 {
+    font-size: 1.5rem;
+    margin-top: 2.25rem;
+  }
+
+  .prose h3 {
+    font-size: 1.25rem;
+    margin-top: 1.75rem;
+  }
+
+  .prose h4 {
+    font-size: 1.1rem;
+  }
+
+  .prose blockquote {
+    padding: 0.75rem 1rem;
+  }
+
+  .prose table {
+    font-size: 0.9rem;
+  }
+
+  .prose th,
+  .prose td {
+    padding: 0.5rem 0.75rem;
+  }
+}

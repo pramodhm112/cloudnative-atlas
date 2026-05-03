@@ -1,0 +1,400 @@
+/* ==========================================================================
+   Listing Page Shared Styles
+   Used by: blog/index, courses/index, practice-tests/index
+   Import in frontmatter: import '../../styles/listing-page.css';
+   ========================================================================== */
+
+/* ---------- Page Header ---------- */
+
+.listing-header {
+  padding: 4rem 0 3rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.listing-header .container {
+  position: relative;
+  z-index: 1;
+}
+
+.page-title {
+  font-size: 3.5rem;
+  margin-bottom: 1rem;
+  overflow-wrap: break-word;
+  background: var(--gradient-1);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.page-subtitle {
+  font-size: 1.25rem;
+  color: var(--text-secondary);
+  margin-bottom: 3rem;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ---------- Category Filter Buttons ---------- */
+
+.category-filter {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 2rem;
+}
+
+/* Filter chip = rounded rectangle + category dot + tabular count.
+   Radius matches the site-wide 10px button radius (global.css action-button
+   rule) so filter chips and primary action buttons share one shape language.
+   Active state uses each category's own colour so the filter gives visual
+   feedback about what's selected — gradient is reserved for "All". */
+.filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem 0.8rem 0.45rem 0.7rem;
+  background: rgba(0, 229, 255, 0.04);
+  border: 1.5px solid rgba(0, 229, 255, 0.28);
+  border-radius: 10px;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-weight: 600;
+  transition: background-color 0.2s ease, border-color 0.2s ease,
+              transform 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-family: inherit;
+  line-height: 1;
+  /* Hard-override the global `button { box-shadow: var(--shadow-glow) }`
+     rule (global.css:253) so the pill doesn't inherit a 20px cyan halo. */
+  box-shadow: none;
+}
+
+.filter-btn:hover {
+  background: rgba(0, 229, 255, 0.1);
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  /* Same — override the global `button:hover { box-shadow: 0 0 30px var(--glow) }`. */
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
+}
+
+.filter-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Base active: neutral cyan fill, used as fallback. Specific categories
+   override below so the pill takes on the category's own colour. */
+.filter-btn.active {
+  background: rgba(0, 229, 255, 0.18);
+  border-color: var(--primary);
+  color: #fff;
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.25);
+}
+
+/* Per-category active tint — colour-codes which filter is on. */
+.filter-btn[data-category="DevOps"].active {
+  background: rgba(255, 149, 0, 0.22);
+  border-color: var(--secondary);
+  box-shadow: 0 0 14px rgba(255, 149, 0, 0.3);
+}
+.filter-btn[data-category="Cloud"].active {
+  background: rgba(0, 229, 255, 0.22);
+  border-color: var(--primary);
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.3);
+}
+.filter-btn[data-category="AI"].active {
+  background: rgba(77, 159, 255, 0.22);
+  border-color: var(--accent);
+  box-shadow: 0 0 14px rgba(77, 159, 255, 0.3);
+}
+.filter-btn[data-category="Security"].active {
+  background: rgba(255, 184, 0, 0.22);
+  border-color: var(--security);
+  box-shadow: 0 0 14px rgba(255, 184, 0, 0.3);
+}
+/* "All" keeps a subtle gradient as the meta-option marker, but the glow
+   is kept tight so it doesn't bleed past the pill edge. */
+.filter-btn[data-category="All"].active {
+  background:
+    linear-gradient(135deg,
+      rgba(0, 229, 255, 0.22) 0%,
+      rgba(255, 149, 0, 0.22) 100%);
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.25);
+}
+
+/* ── Category dot ── coloured indicator per category */
+.filter-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: var(--primary);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  color: var(--primary);
+}
+
+.filter-btn[data-category="All"] .filter-dot {
+  background: conic-gradient(
+    from 0deg,
+    var(--primary),
+    var(--secondary),
+    var(--accent),
+    var(--security),
+    var(--primary)
+  );
+  color: var(--primary);
+}
+.filter-btn[data-category="DevOps"]   .filter-dot { background: var(--secondary); color: var(--secondary); }
+.filter-btn[data-category="Cloud"]    .filter-dot { background: var(--primary);   color: var(--primary); }
+.filter-btn[data-category="AI"]       .filter-dot { background: var(--accent);    color: var(--accent); }
+.filter-btn[data-category="Security"] .filter-dot { background: var(--security);  color: var(--security); }
+
+/* Dot glow only when active — avoids the look of every dot being "lit". */
+.filter-btn.active .filter-dot {
+  box-shadow: 0 0 8px currentColor;
+}
+
+.filter-btn:hover .filter-dot {
+  transform: scale(1.15);
+}
+
+.filter-label {
+  white-space: nowrap;
+}
+
+/* ── Tabular count chip ──
+   Bare number in its own small rounded rectangle, tnum digits so
+   "2" and "81" line up. Smaller 6px radius — matches the
+   .category-badge / .difficulty-badge sibling chips on the same page. */
+.filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  height: 1.25rem;
+  padding: 0 0.45rem;
+  margin-left: 0.1rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+  letter-spacing: 0.02em;
+}
+
+.filter-btn.active .filter-count {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+/* ---------- Content Section ---------- */
+
+.listing-content {
+  padding: 2rem 0 4rem;
+}
+
+/* ---------- Card Grid ---------- */
+
+.listing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 2rem;
+}
+
+/* ---------- Card Base ---------- */
+
+.listing-card {
+  padding: 2rem;
+  transition: all 0.3s ease;
+  animation: fadeIn 0.6s ease-out;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(0, 229, 255, 0.12);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.25),
+    0 0 20px rgba(0, 229, 255, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.listing-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(0, 229, 255, 0.25);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    0 0 40px rgba(0, 229, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* ---------- Shared Card Internals ---------- */
+
+.listing-card .card-badges {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.listing-card .card-title {
+  font-size: 1.5rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.35;
+}
+
+.listing-card .card-title a {
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.listing-card .card-title a:hover {
+  color: var(--primary);
+}
+
+.listing-card .card-desc {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 1rem;
+  flex: 1;
+}
+
+.listing-card .card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.listing-card .card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 1.25rem;
+  margin-top: auto;
+}
+
+.listing-card .card-author {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  /* Take all remaining space, but shrink + ellipsize before pushing the
+     action button below. Long author names get "…" instead of wrapping. */
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.listing-card .card-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+  border: 1.5px solid rgba(0, 229, 255, 0.25);
+  border-radius: 8px;
+  background: rgba(0, 229, 255, 0.04);
+  transition: all 0.3s ease;
+  /* Button keeps its natural width, never shrinks, text stays on one line. */
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.listing-card .card-action:hover {
+  background: rgba(0, 229, 255, 0.1);
+  border-color: var(--primary);
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.listing-card .card-date {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* ---------- Category & Difficulty Badges ---------- */
+
+.category-badge,
+.difficulty-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.category-badge.devops  { background: rgba(255, 149, 0, 0.2); color: var(--secondary); }
+.category-badge.cloud   { background: rgba(0, 229, 255, 0.2); color: var(--primary); }
+.category-badge.ai      { background: rgba(77, 159, 255, 0.2); color: var(--accent); }
+.category-badge.security { background: rgba(255, 184, 0, 0.2); color: var(--security); }
+
+.difficulty-badge.beginner     { background: rgba(76, 175, 80, 0.2); color: #4caf50; }
+.difficulty-badge.intermediate { background: rgba(255, 152, 0, 0.2); color: #ff9800; }
+.difficulty-badge.advanced     { background: rgba(244, 67, 54, 0.2); color: #f44336; }
+
+/* ---------- Tags ---------- */
+
+.tag {
+  font-size: 0.85rem;
+  color: var(--primary);
+  opacity: 0.7;
+}
+
+/* ---------- Empty / No-Results State ---------- */
+
+.no-results-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--text-secondary);
+}
+
+.no-results-state h3 {
+  margin: 1rem 0 0.5rem;
+  color: var(--text-primary);
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 1024px) {
+  .page-title {
+    font-size: 2.25rem;
+  }
+
+  .page-subtitle {
+    font-size: 1.05rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-title {
+    font-size: 1.75rem;
+  }
+
+  .page-subtitle {
+    font-size: 0.95rem;
+  }
+
+  .listing-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .category-filter {
+    gap: 0.5rem;
+  }
+
+  .filter-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+}

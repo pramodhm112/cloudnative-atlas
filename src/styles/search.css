@@ -1,0 +1,161 @@
+/* ==========================================================================
+   Search Component Shared Styles
+   Used by: Search.astro (unified component for all listing pages)
+   Import in frontmatter: import '../styles/search.css';
+   ========================================================================== */
+
+/* ---------- Container & Input ---------- */
+
+.search-container {
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.search-box {
+  position: relative;
+  width: 100%;
+}
+
+.search-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  padding: 1rem 1rem 1rem 3rem;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: var(--shadow-glow);
+}
+
+.search-input::placeholder {
+  color: var(--text-secondary);
+}
+
+/* ---------- Results Dropdown ---------- */
+
+.search-results {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  right: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- Result Items ---------- */
+
+.search-results .search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.08);
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+
+.search-results .search-result-item:last-child {
+  border-bottom: none;
+}
+
+.search-results .search-result-item:hover {
+  background: var(--bg-tertiary);
+}
+
+/* ---------- Result Badge ---------- */
+
+.search-results .result-badge {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+}
+
+.search-results .result-badge.devops   { background: rgba(255, 149, 0, 0.15); color: var(--secondary); }
+.search-results .result-badge.cloud    { background: rgba(0, 229, 255, 0.15); color: var(--primary); }
+.search-results .result-badge.ai       { background: rgba(77, 159, 255, 0.15); color: var(--accent); }
+.search-results .result-badge.security { background: rgba(255, 184, 0, 0.15); color: var(--security); }
+
+/* ---------- Result Title ---------- */
+
+.search-results .result-title {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--text-primary);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.search-results .search-result-item:hover .result-title {
+  color: var(--primary);
+}
+
+/* ---------- Result Difficulty Pill (variant: 'difficulty') ---------- */
+
+.search-results .result-difficulty {
+  flex-shrink: 0;
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+}
+
+.search-results .result-difficulty.beginner     { background: rgba(76, 175, 80, 0.15); color: #4caf50; }
+.search-results .result-difficulty.intermediate { background: rgba(255, 152, 0, 0.15); color: #ff9800; }
+.search-results .result-difficulty.advanced     { background: rgba(244, 67, 54, 0.15); color: #f44336; }
+
+/* ---------- Result Meta Text (variant: 'meta', e.g. courses) ---------- */
+
+.search-results .result-meta {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* ---------- No Results ---------- */
+
+.search-results .no-results {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 768px) {
+  .search-results {
+    max-height: 300px;
+  }
+}

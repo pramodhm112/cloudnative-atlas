@@ -14,6 +14,13 @@
   --text-primary: #E8F4FF;   /* Ice Blue */
   --text-secondary: #8BA9C9; /* Muted Blue */
 
+  /* RGB channel components — enables rgba(var(--primary-rgb), alpha) so
+     opacity washes can use the same source of truth as the hex color above.
+     Keep in sync with the hex values. */
+  --primary-rgb: 0, 229, 255;
+  --secondary-rgb: 255, 149, 0;
+  --accent-rgb: 77, 159, 255;
+
   /* Effects */
   --border: rgba(0, 229, 255, 0.2);
   --glow: rgba(0, 229, 255, 0.4);
@@ -27,6 +34,18 @@
 
 /* Using Montserrat from Google Fonts (clean, modern alternative) */
 
+/* Metric-adjusted fallback — matches Montserrat dimensions so
+   if the browser uses the system fallback (e.g. first visit with
+   font-display:optional), the layout is nearly identical. */
+@font-face {
+  font-family: 'Montserrat Fallback';
+  src: local('Arial'), local('Helvetica Neue'), local('Helvetica');
+  size-adjust: 112.64%;
+  ascent-override: 101%;
+  descent-override: 26%;
+  line-gap-override: 0%;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -34,7 +53,7 @@
 }
 
 body {
-  font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family: 'Montserrat', 'Montserrat Fallback', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   font-weight: 400;
   background: var(--bg-primary);
   color: var(--text-primary);
@@ -63,30 +82,51 @@ body::before {
   50% { opacity: 0.6; }
 }
 
-/* Scrollbar */
+/* Scrollbar — subtle, page-matched. The track shares the page background
+   color so no visible strip appears beside the thumb; the thumb is a soft
+   translucent cyan with a page-colored border that creates an "inset" look
+   so it reads as a slim pill rather than a full 10px bar. Hover bumps
+   opacity for a gentle affordance. */
 ::-webkit-scrollbar {
   width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
+  background: var(--bg-primary);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--gradient-1);
-  border-radius: 5px;
+  background: rgba(var(--primary-rgb), 0.18);
+  border-radius: 10px;
+  border: 2px solid var(--bg-primary);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--secondary);
+  background: rgba(var(--primary-rgb), 0.35);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--bg-primary);
+}
+
+/* Firefox */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 229, 255, 0.2) var(--bg-primary);
 }
 
 /* Typography */
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Montserrat', sans-serif;
+  font-family: 'Montserrat', 'Montserrat Fallback', sans-serif;
   font-weight: 600;
   line-height: 1.2;
   margin-bottom: 1rem;
+  color: var(--text-primary);
+}
+
+/* Gradient heading utility — apply only to display/hero headings */
+.gradient-heading {
   background: var(--gradient-1);
   -webkit-background-clip: text;
   background-clip: text;
@@ -124,55 +164,74 @@ a:hover {
   text-shadow: 0 0 20px var(--glow-orange);
 }
 
-/* Code blocks */
+/* Code blocks — subtle, no halo. The earlier `box-shadow: var(--shadow-glow)`
+   put a 20px cyan halo around every code block in blog/projects/courses
+   prose, which was loud enough to fight with the body text. Now we use a
+   gentle dark drop + 1px inner highlight that reads as "raised surface"
+   without shouting. */
 pre {
   background: var(--bg-tertiary) !important;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1.5rem;
+  border: 1px solid rgba(0, 229, 255, 0.12);
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
   overflow-x: auto;
   margin: 1.5rem 0;
-  box-shadow: var(--shadow-glow);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 code {
-  font-family: 'Fira Code', 'Courier New', monospace;
+  font-family: 'Fira Code', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 0.9rem;
+  font-feature-settings: 'liga' 0, 'calt' 0;
 }
 
 :not(pre) > code {
-  background: var(--bg-tertiary);
-  padding: 0.2rem 0.4rem;
+  background: rgba(0, 229, 255, 0.08);
+  padding: 0.15rem 0.4rem;
   border-radius: 4px;
   color: var(--primary);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(0, 229, 255, 0.18);
 }
 
-/* Tables */
+/* ==========================================================================
+   Tables — site-wide
+   --------------------------------------------------------------------------
+   Earlier the global table rule set `thead { background: var(--gradient-1) }`
+   plus a 20px halo on the table itself. The cyan half of the gradient
+   matched the cyan-tinted header text, so the leftmost column header
+   (e.g. "Model") was invisible. Now we use a subtle cyan tint on the
+   header row so headers stay readable in primary, with no halo.
+   ========================================================================== */
 table {
   width: 100%;
   border-collapse: collapse;
   margin: 2rem 0;
   background: var(--bg-secondary);
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
   overflow: hidden;
-  box-shadow: var(--shadow-glow);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 thead {
-  background: var(--gradient-1);
+  background: rgba(0, 229, 255, 0.08);
 }
 
 th {
-  padding: 1rem;
+  padding: 0.85rem 1rem;
   text-align: left;
   font-weight: 600;
-  color: var(--bg-primary);
+  color: var(--primary);
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.18);
 }
 
 td {
-  padding: 1rem;
+  padding: 0.85rem 1rem;
   border-top: 1px solid var(--border);
+  color: var(--text-primary);
 }
 
 tr:hover {
@@ -209,22 +268,141 @@ img {
   box-shadow: var(--shadow-glow);
 }
 
-/* Buttons */
-button, .button {
+/* ==========================================================================
+   Standardized action-button system
+   --------------------------------------------------------------------------
+   Targets the two opt-in action-button classes used across the site —
+   hero CTAs (.button), and detail-page back links (.back-button).
+   Deliberately does NOT touch bare <button> elements so structural
+   buttons (.hamburger, .filter-btn, tab triggers, quiz answer chips,
+   modal confirms) keep their own scoped styling without regressing.
+
+     • Single 10px radius — gentle rectangular corners, consistent with
+       cards and the rest of the site's geometry. No pills, no sharp
+       rectangles, no 8px/999px mismatch.
+     • `background-clip: padding-box` — prevents the gradient from
+       painting into the transparent border, which was the source of the
+       colour bleed right at the rounded-corner seam.
+     • Contained box-shadow — soft dark drop + subtle cyan tint, capped
+       at 14px spread so the halo can't leak past the pill edge.
+     • Hover lifts the button 2px with a slightly brighter cyan glow —
+       still contained, no 20–30px halo.
+   ========================================================================== */
+.button, .back-button {
+  display: inline-block;
+  padding: 0.75rem 1.75rem;
   background: var(--gradient-1);
+  background-clip: padding-box;
   color: var(--bg-primary);
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
+  border: 1.5px solid transparent;
+  border-radius: 10px;
   font-weight: 600;
+  font-size: 1rem;
+  font-family: inherit;
+  text-decoration: none;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: var(--shadow-glow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.06) inset;
 }
 
-button:hover, .button:hover {
+.button:hover, .back-button:hover,
+.button:focus-visible, .back-button:focus-visible {
   transform: translateY(-2px);
-  box-shadow: 0 0 30px var(--glow);
+  color: var(--bg-primary);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.35),
+    0 0 14px rgba(0, 229, 255, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+}
+
+.button:focus-visible, .back-button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Bare <button> minimal reset. The previous default applied the full
+   cyan→orange gradient + halo to every native button on the site,
+   which is what broke structural buttons earlier and leaked orange
+   pixels past their clipped corners. Keeping this neutral ensures
+   components that want the action-button look must opt in with .button. */
+button {
+  font-family: inherit;
+  cursor: pointer;
+  background: transparent;
+  color: inherit;
+  border: none;
+  padding: 0;
+}
+
+/* Outlined variant — used as a secondary action paired with a primary
+   gradient button (e.g. "Start Test" + "Back to Tests"). Same pill
+   radius so primary + secondary look matched. */
+.back-button--outline {
+  background: rgba(var(--primary-rgb), 0.04);
+  color: var(--primary);
+  border-color: rgba(var(--primary-rgb), 0.3);
+  box-shadow: none;
+}
+
+.back-button--outline:hover,
+.back-button--outline:focus-visible {
+  background: rgba(var(--primary-rgb), 0.1);
+  border-color: var(--primary);
+  box-shadow: 0 0 14px rgba(var(--primary-rgb), 0.25);
+  color: var(--primary);
+}
+
+/* ==========================================================================
+   Focus mode (body.focus-mode)
+   --------------------------------------------------------------------------
+   Toggled by FocusToggle.astro on blog/course-topic pages (also used by
+   the in-test focus toggle in practice-tests/[...slug].astro). Strips
+   nav, footer, sidebar, and other chrome so the reader sees content only.
+   Press `f` to toggle, `Esc` to exit.
+   ========================================================================== */
+body.focus-mode .nav-wrapper,
+body.focus-mode nav.navbar,
+body.focus-mode footer,
+body.focus-mode .site-header,
+body.focus-mode .course-sidebar,
+body.focus-mode .sidebar-toggle-mobile,
+body.focus-mode .breadcrumb,
+body.focus-mode .post-footer,
+body.focus-mode .topic-nav {
+  display: none !important;
+}
+
+/* Centre the article body and slightly widen the reading column so the
+   newly-freed horizontal space is used calmly, not aggressively. */
+body.focus-mode .post-content,
+body.focus-mode .topic-content,
+body.focus-mode .study-guide {
+  max-width: 78ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Pull the article tighter to the top now that nav is gone. */
+body.focus-mode .blog-post,
+body.focus-mode .topic-page {
+  padding-top: 1.5rem;
+}
+
+/* Hide the focus button itself when active so it doesn't visually clash
+   with the now-clean page. Press `Esc` or `f` to come back. */
+body.focus-mode #focus-toggle {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 100;
+  opacity: 0.45;
+  transition: opacity 0.2s ease;
+}
+body.focus-mode #focus-toggle:hover,
+body.focus-mode #focus-toggle:focus-visible {
+  opacity: 1;
 }
 
 /* Container */
@@ -241,6 +419,24 @@ button:hover, .button:hover {
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: var(--shadow-glow);
+}
+
+/* Text selection — brand-matched cyan highlight instead of default blue.
+   Applies wherever selection is enabled (home page disables it page-wide). */
+::selection {
+  background: rgba(var(--primary-rgb), 0.35);
+  color: var(--text-primary);
+  text-shadow: none;
+}
+::-moz-selection {
+  background: rgba(var(--primary-rgb), 0.35);
+  color: var(--text-primary);
+  text-shadow: none;
+}
+
+/* Utility: hide elements via class toggle instead of inline style.display */
+.hidden {
+  display: none !important;
 }
 
 /* Animations */
@@ -272,15 +468,6 @@ button:hover, .button:hover {
   animation: glow 2s ease-in-out infinite;
 }
 
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
 /* Responsive */
 @media (max-width: 768px) {
   h1 {
@@ -301,5 +488,17 @@ button:hover, .button:hover {
 
   th, td {
     padding: 0.5rem;
+  }
+}
+
+/* Accessibility: Respect user motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
