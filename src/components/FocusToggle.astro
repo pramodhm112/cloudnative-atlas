@@ -1,0 +1,109 @@
+---
+/**
+ * Focus mode toggle.
+ *
+ * Drops onto blog and course-topic pages. Clicking the button (or pressing
+ * `f`) toggles `body.focus-mode`, which the global stylesheet uses to
+ * hide site chrome (nav, footer, sidebar) and centre the article body
+ * for distraction-free reading. Esc or another click exits.
+ *
+ * Implementation mirrors the pattern in src/pages/practice-tests/[...slug].astro
+ * so the on/off flow feels identical across the site.
+ */
+
+interface Props {
+  /** Optional aria label override; defaults to "Toggle focus mode". */
+  label?: string;
+}
+
+const { label = 'Toggle focus mode' } = Astro.props;
+---
+
+<button id="focus-toggle" class="focus-toggle" aria-label={label} aria-pressed="false" type="button" title="Distraction-free reading (press F)">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+    <path d="M8 3H5a2 2 0 0 0-2 2v3"></path>
+    <path d="M21 8V5a2 2 0 0 0-2-2h-3"></path>
+    <path d="M3 16v3a2 2 0 0 0 2 2h3"></path>
+    <path d="M16 21h3a2 2 0 0 0 2-2v-3"></path>
+  </svg>
+  <span class="focus-toggle-label">Focus</span>
+</button>
+
+<style>
+  .focus-toggle {
+    /* Inherits global .button look-and-feel intentionally avoided —
+       this is a chrome-style chip, not a primary action. */
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.9rem;
+    background: rgba(0, 229, 255, 0.06);
+    color: var(--text-primary);
+    border: 1.5px solid rgba(0, 229, 255, 0.25);
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease,
+                box-shadow 0.2s ease, transform 0.2s ease;
+    box-shadow: none;
+  }
+
+  .focus-toggle:hover {
+    background: rgba(0, 229, 255, 0.12);
+    border-color: var(--primary);
+    transform: translateY(-1px);
+  }
+
+  .focus-toggle[aria-pressed='true'] {
+    background: rgba(0, 229, 255, 0.18);
+    border-color: var(--primary);
+    color: var(--primary);
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.25);
+  }
+</style>
+
+<script>
+  // Module-level so the listener wires up exactly once even if the
+  // component appears more than once on a page (it shouldn't, but
+  // defensive). Idempotency flag on body so prerendered + hydrated
+  // setups don't double-bind on view transitions.
+  function initFocusToggle() {
+    const body = document.body;
+    if (body.dataset.focusToggleInit === '1') return;
+    body.dataset.focusToggleInit = '1';
+
+    const btn = document.getElementById('focus-toggle');
+    if (!btn) return;
+
+    function setFocus(on: boolean) {
+      body.classList.toggle('focus-mode', on);
+      btn?.setAttribute('aria-pressed', String(on));
+    }
+
+    btn.addEventListener('click', () => {
+      setFocus(!body.classList.contains('focus-mode'));
+    });
+
+    document.addEventListener('keydown', (e) => {
+      // `f` toggles, `Esc` exits — match the practice-test idiom.
+      const t = e.target as HTMLElement | null;
+      const isTyping =
+        t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+      if (isTyping) return;
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        setFocus(!body.classList.contains('focus-mode'));
+      } else if (e.key === 'Escape' && body.classList.contains('focus-mode')) {
+        setFocus(false);
+      }
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initFocusToggle);
+  } else {
+    initFocusToggle();
+  }
+</script>

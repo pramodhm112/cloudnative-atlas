@@ -1,0 +1,439 @@
+---
+/**
+ * Searchable single-select combobox.
+ *
+ * - Click trigger to open the panel
+ * - Type to filter — matches anywhere in the haystack (option text plus
+ *   any extra `search` tokens supplied per option, e.g. dial codes)
+ * - Up/Down arrows + Enter to select via keyboard
+ * - Esc / outside click to close
+ *
+ * Submits the selected value via a hidden <input name="..."> so it works
+ * inside any plain <form> without extra wiring.
+ *
+ * Accessible per WAI-ARIA combobox pattern (combobox + listbox + option
+ * roles, aria-expanded, aria-activedescendant).
+ */
+
+interface Option {
+  /** Form value submitted */
+  value: string;
+  /** Visible label inside the trigger and the option row */
+  label: string;
+  /**
+   * Extra haystack tokens for typeahead matching, joined with spaces.
+   * Already lowercased on the client. Useful when the label hides info
+   * the user might type (e.g. label "+91 IN" but search includes "india").
+   */
+  search?: string;
+}
+
+interface Props {
+  /** Form field name — submitted with the selected option's `value`. */
+  name: string;
+  /** Initial value (one of the options' `value`s). Optional. */
+  value?: string;
+  /** Placeholder shown when no value is selected. */
+  placeholder?: string;
+  /** Choices in display order. */
+  options: Option[];
+  /** ARIA label when no <label> wraps the field. */
+  ariaLabel?: string;
+  /** Disable the field. */
+  disabled?: boolean;
+  /** Mark required for HTML validation (the hidden input is required). */
+  required?: boolean;
+}
+
+const {
+  name,
+  value = '',
+  placeholder = 'Select…',
+  options,
+  ariaLabel,
+  disabled = false,
+  required = false,
+} = Astro.props;
+
+const initial = options.find((o) => o.value === value);
+const triggerId = `ssel-${name}-trigger`;
+const listId = `ssel-${name}-list`;
+const searchId = `ssel-${name}-search`;
+---
+
+<div
+  class="ssel"
+  data-name={name}
+  data-required={required ? 'true' : 'false'}
+>
+  <input
+    type="hidden"
+    name={name}
+    value={initial?.value ?? ''}
+    required={required}
+    aria-hidden="true"
+  />
+  <button
+    type="button"
+    class="ssel-trigger"
+    id={triggerId}
+    aria-haspopup="listbox"
+    aria-expanded="false"
+    aria-controls={listId}
+    aria-label={ariaLabel}
+    disabled={disabled}
+  >
+    <span class="ssel-display" data-placeholder={!initial}>
+      {initial?.label ?? placeholder}
+    </span>
+    <svg class="ssel-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <polyline points="6 9 12 15 18 9"></polyline>
+    </svg>
+  </button>
+
+  <div class="ssel-panel" hidden role="dialog">
+    <div class="ssel-search-wrap">
+      <svg class="ssel-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <input
+        type="text"
+        class="ssel-search"
+        id={searchId}
+        placeholder="Type to filter…"
+        autocomplete="off"
+        spellcheck="false"
+      />
+    </div>
+    <ul
+      class="ssel-list"
+      id={listId}
+      role="listbox"
+      tabindex="-1"
+    >
+      {options.map((opt, i) => (
+        <li
+          role="option"
+          class="ssel-option"
+          id={`ssel-${name}-opt-${i}`}
+          data-value={opt.value}
+          data-label={opt.label}
+          data-search={`${opt.label} ${opt.search ?? ''}`.toLowerCase()}
+          aria-selected={opt.value === value ? 'true' : 'false'}
+        >
+          {opt.label}
+        </li>
+      ))}
+    </ul>
+    <p class="ssel-empty" hidden>No matches</p>
+  </div>
+</div>
+
+<script>
+  // Single delegated controller for every .ssel on the page.
+  // Idempotent: reruns safely on Astro view transitions / HMR.
+  function initCombobox(root: HTMLElement): void {
+    if (root.dataset.sselInited === '1') return;
+    root.dataset.sselInited = '1';
+
+    const hidden = root.querySelector<HTMLInputElement>('input[type="hidden"]')!;
+    const trigger = root.querySelector<HTMLButtonElement>('.ssel-trigger')!;
+    const display = root.querySelector<HTMLElement>('.ssel-display')!;
+    const panel = root.querySelector<HTMLElement>('.ssel-panel')!;
+    const search = root.querySelector<HTMLInputElement>('.ssel-search')!;
+    const list = root.querySelector<HTMLElement>('.ssel-list')!;
+    const empty = root.querySelector<HTMLElement>('.ssel-empty')!;
+    const placeholder = display.textContent?.trim() ?? '';
+    const options = Array.from(root.querySelectorAll<HTMLLIElement>('.ssel-option'));
+
+    let activeIdx = -1; // currently highlighted (keyboard) option
+
+    function open() {
+      if (!panel.hidden) return;
+      panel.hidden = false;
+      trigger.setAttribute('aria-expanded', 'true');
+      // Focus search after the panel is in the DOM
+      requestAnimationFrame(() => search.focus());
+    }
+
+    function close() {
+      if (panel.hidden) return;
+      panel.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+      search.value = '';
+      filter('');
+      activeIdx = -1;
+      list.removeAttribute('aria-activedescendant');
+    }
+
+    function selectOption(opt: HTMLLIElement) {
+      const value = opt.dataset.value ?? '';
+      const label = opt.dataset.label ?? '';
+      hidden.value = value;
+      display.textContent = label;
+      display.dataset.placeholder = 'false';
+      options.forEach((o) => o.setAttribute('aria-selected', 'false'));
+      opt.setAttribute('aria-selected', 'true');
+      // Notify any external listeners (e.g. form change handlers).
+      hidden.dispatchEvent(new Event('change', { bubbles: true }));
+      close();
+      trigger.focus();
+    }
+
+    function filter(query: string) {
+      const q = query.toLowerCase().trim();
+      let firstVisible = -1;
+      options.forEach((o, i) => {
+        const hay = o.dataset.search ?? '';
+        const match = q === '' || hay.includes(q);
+        o.hidden = !match;
+        if (match && firstVisible === -1) firstVisible = i;
+      });
+      empty.hidden = firstVisible !== -1;
+      // Reset highlight to the first visible match
+      setActive(firstVisible);
+    }
+
+    function setActive(idx: number) {
+      // Clear current
+      if (activeIdx >= 0 && options[activeIdx]) {
+        options[activeIdx].classList.remove('ssel-option-active');
+      }
+      activeIdx = idx;
+      if (idx >= 0 && options[idx]) {
+        const o = options[idx];
+        o.classList.add('ssel-option-active');
+        o.scrollIntoView({ block: 'nearest' });
+        list.setAttribute('aria-activedescendant', o.id);
+      } else {
+        list.removeAttribute('aria-activedescendant');
+      }
+    }
+
+    function visibleIndices(): number[] {
+      const out: number[] = [];
+      options.forEach((o, i) => {
+        if (!o.hidden) out.push(i);
+      });
+      return out;
+    }
+
+    function moveActive(delta: number) {
+      const vis = visibleIndices();
+      if (vis.length === 0) return;
+      const cur = vis.indexOf(activeIdx);
+      const next = cur < 0 ? vis[0] : vis[Math.max(0, Math.min(vis.length - 1, cur + delta))];
+      setActive(next);
+    }
+
+    // --- Wire events --------------------------------------------------
+
+    trigger.addEventListener('click', () => {
+      if (panel.hidden) open();
+      else close();
+    });
+
+    trigger.addEventListener('keydown', (e) => {
+      if (['ArrowDown', 'Enter', ' '].includes(e.key)) {
+        e.preventDefault();
+        open();
+      }
+    });
+
+    search.addEventListener('input', () => filter(search.value));
+
+    search.addEventListener('keydown', (e) => {
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          moveActive(1);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          moveActive(-1);
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (activeIdx >= 0 && !options[activeIdx].hidden) {
+            selectOption(options[activeIdx]);
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          close();
+          trigger.focus();
+          break;
+      }
+    });
+
+    list.addEventListener('click', (e) => {
+      const target = (e.target as HTMLElement).closest<HTMLLIElement>('.ssel-option');
+      if (target) selectOption(target);
+    });
+
+    list.addEventListener('mousemove', (e) => {
+      const target = (e.target as HTMLElement).closest<HTMLLIElement>('.ssel-option');
+      if (!target || target.hidden) return;
+      const idx = options.indexOf(target);
+      if (idx !== activeIdx) setActive(idx);
+    });
+
+    // Click outside → close
+    document.addEventListener('click', (e) => {
+      if (panel.hidden) return;
+      if (!root.contains(e.target as Node)) close();
+    });
+  }
+
+  function initAll() {
+    document.querySelectorAll<HTMLElement>('.ssel').forEach(initCombobox);
+  }
+  initAll();
+  // Re-init after view transitions
+  document.addEventListener('astro:after-swap', initAll);
+</script>
+
+<style>
+  .ssel {
+    position: relative;
+    width: 100%;
+  }
+
+  /* Trigger shares look-and-feel with form inputs */
+  .ssel-trigger {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.7rem 0.9rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1.5px solid rgba(var(--primary-rgb), 0.18);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    text-align: left;
+    /* Override the global gradient .button styles — this isn't a primary button */
+    box-shadow: none;
+  }
+
+  .ssel-trigger:hover {
+    border-color: rgba(var(--primary-rgb), 0.4);
+    transform: none;
+  }
+
+  .ssel-trigger:focus-visible,
+  .ssel-trigger[aria-expanded='true'] {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.15);
+  }
+
+  .ssel-trigger:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .ssel-display[data-placeholder='true'] {
+    color: var(--text-secondary);
+    opacity: 0.7;
+  }
+
+  .ssel-caret {
+    flex-shrink: 0;
+    color: var(--text-secondary);
+    transition: transform 0.2s;
+  }
+
+  .ssel-trigger[aria-expanded='true'] .ssel-caret {
+    transform: rotate(180deg);
+    color: var(--primary);
+  }
+
+  /* Panel */
+  .ssel-panel {
+    position: absolute;
+    top: calc(100% + 0.4rem);
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: var(--bg-secondary);
+    border: 1px solid rgba(var(--primary-rgb), 0.25);
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 0 24px rgba(var(--primary-rgb), 0.08);
+    overflow: hidden;
+  }
+
+  .ssel-search-wrap {
+    position: relative;
+    padding: 0.6rem;
+    border-bottom: 1px solid rgba(var(--primary-rgb), 0.1);
+  }
+
+  .ssel-search-icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+    pointer-events: none;
+  }
+
+  .ssel-search {
+    width: 100%;
+    padding: 0.5rem 0.75rem 0.5rem 2rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(var(--primary-rgb), 0.15);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-family: inherit;
+  }
+
+  .ssel-search:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .ssel-list {
+    list-style: none;
+    margin: 0;
+    padding: 0.35rem 0;
+    max-height: 240px;
+    overflow-y: auto;
+    /* Custom scrollbar — same theme as the page-wide one */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(var(--primary-rgb), 0.3) transparent;
+  }
+
+  .ssel-option {
+    padding: 0.55rem 1rem;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.1s;
+  }
+
+  .ssel-option[aria-selected='true'] {
+    color: var(--primary);
+    font-weight: 600;
+  }
+
+  .ssel-option-active,
+  .ssel-option:hover {
+    background: rgba(var(--primary-rgb), 0.12);
+  }
+
+  .ssel-empty {
+    margin: 0;
+    padding: 0.85rem 1rem;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    text-align: center;
+  }
+</style>

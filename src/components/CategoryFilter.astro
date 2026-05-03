@@ -1,0 +1,50 @@
+---
+interface Props {
+  categories: string[];
+  itemLabel: string;
+  /**
+   * Per-category item count. When provided, counts render server-side as
+   * <span class="filter-count">N</span> inside each button, preventing the
+   * CLS that used to happen when the client-side script injected them on
+   * DOMContentLoaded.
+   */
+  counts?: Record<string, number>;
+  /**
+   * Total item count — rendered on the "All" pill. When omitted, we
+   * fall back to summing the values in `counts`.
+   */
+  total?: number;
+}
+
+const { categories, itemLabel, counts, total } = Astro.props;
+
+function countFor(category: string): number | null {
+  if (!counts) return null;
+  if (category === 'All') {
+    return total ?? Object.values(counts).reduce((a, b) => a + b, 0);
+  }
+  return counts[category] ?? 0;
+}
+---
+
+<div class="category-filter" role="group" aria-label={`Filter ${itemLabel} by category`}>
+  {categories.map((category) => {
+    const count = countFor(category);
+    const showCount = count !== null && (count > 0 || category === 'All');
+    return (
+      <button
+        class:list={['filter-btn', { active: category === 'All' }]}
+        data-category={category}
+        aria-label={`Filter by ${category}`}
+      >
+        <span class="filter-dot" aria-hidden="true"></span>
+        <span class="filter-label">{category}</span>
+        {showCount && (
+          <span class="filter-count" aria-label={`${count} ${count === 1 ? 'item' : 'items'}`}>
+            {count}
+          </span>
+        )}
+      </button>
+    );
+  })}
+</div>

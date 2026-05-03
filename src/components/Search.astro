@@ -1,8 +1,38 @@
 ---
-// This component will be used for client-side search functionality
+// Unified search component for all listing pages.
+// Variant controls what extra info appears on each result row:
+//   - 'simple'     → badge + title (blog)
+//   - 'difficulty' → badge + title + difficulty pill (projects, tests)
+//   - 'meta'       → badge + title + meta line (courses: "3 modules · 7 topics · Beginner")
+import '../styles/search.css';
+
+interface Props {
+  placeholder: string;
+  endpoint: string;
+  urlPrefix: string;
+  variant?: 'simple' | 'difficulty' | 'meta';
+  notFoundText?: string;
+  errorText?: string;
+}
+
+const {
+  placeholder,
+  endpoint,
+  urlPrefix,
+  variant = 'simple',
+  notFoundText = 'No results found',
+  errorText = 'Failed to load search data',
+} = Astro.props;
 ---
 
-<div class="search-container">
+<div
+  class="search-container"
+  data-endpoint={endpoint}
+  data-url-prefix={urlPrefix}
+  data-variant={variant}
+  data-not-found={notFoundText}
+  data-error-text={errorText}
+>
   <div class="search-box">
     <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <circle cx="11" cy="11" r="8"></circle>
@@ -10,257 +40,141 @@
     </svg>
     <input
       type="text"
-      id="search-input"
-      placeholder="Search articles..."
+      placeholder={placeholder}
       class="search-input"
+      autocomplete="off"
     />
   </div>
-  <div id="search-results" class="search-results"></div>
+  <div class="search-results"></div>
 </div>
 
 <script>
-  interface Post {
+  interface SearchItem {
     slug: string;
     title: string;
     description: string;
     category: string;
+    difficulty?: string;
     tags?: string[];
-    author: string;
-    pubDate: string;
+    technologies?: string[];
+    moduleCount?: number;
+    topicCount?: number;
   }
 
-  let allPosts: Post[] = [];
-  let searchTimeout: ReturnType<typeof setTimeout>;
+  function initSearch(container: HTMLElement) {
+    const endpoint = container.dataset.endpoint!;
+    const urlPrefix = container.dataset.urlPrefix!;
+    const variant = (container.dataset.variant || 'simple') as 'simple' | 'difficulty' | 'meta';
+    const notFoundText = container.dataset.notFound || 'No results found';
+    const errorText = container.dataset.errorText || 'Failed to load search data';
 
-  async function loadPosts() {
-    try {
-      const response = await fetch('/api/posts.json');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      allPosts = await response.json();
-    } catch (error) {
-      console.error('Error loading posts:', error);
-      const container = document.getElementById('search-results');
-      if (container) {
+    const input = container.querySelector<HTMLInputElement>('.search-input');
+    const results = container.querySelector<HTMLDivElement>('.search-results');
+    if (!input || !results) return;
+
+    let items: SearchItem[] = [];
+    let timeout: ReturnType<typeof setTimeout>;
+    let loaded = false;
+
+    async function load() {
+      if (loaded) return;
+      try {
+        const res = await fetch(endpoint);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        items = await res.json();
+        loaded = true;
+      } catch {
         const msg = document.createElement('p');
         msg.className = 'no-results';
-        msg.textContent = 'Failed to load search data';
-        container.replaceChildren(msg);
+        msg.textContent = errorText;
+        results!.replaceChildren(msg);
       }
     }
-  }
 
-  function searchPosts(query: string) {
-    const container = document.getElementById('search-results');
-    if (!container) return;
-
-    if (!query.trim()) {
-      container.replaceChildren();
-      return;
+    function matches(item: SearchItem, q: string): boolean {
+      if (item.title.toLowerCase().includes(q)) return true;
+      if (item.description.toLowerCase().includes(q)) return true;
+      if (item.category.toLowerCase().includes(q)) return true;
+      if (item.difficulty?.toLowerCase().includes(q)) return true;
+      if (item.tags?.some((t) => t.toLowerCase().includes(q))) return true;
+      if (item.technologies?.some((t) => t.toLowerCase().includes(q))) return true;
+      return false;
     }
 
-    const lowerQuery = query.toLowerCase();
-    const results = allPosts.filter(post => {
-      const titleMatch = post.title.toLowerCase().includes(lowerQuery);
-      const descMatch = post.description.toLowerCase().includes(lowerQuery);
-      const tagMatch = post.tags?.some((tag: string) => tag.toLowerCase().includes(lowerQuery));
-      const categoryMatch = post.category.toLowerCase().includes(lowerQuery);
+    function render(filtered: SearchItem[]) {
+      if (filtered.length === 0) {
+        const msg = document.createElement('p');
+        msg.className = 'no-results';
+        msg.textContent = notFoundText;
+        results!.replaceChildren(msg);
+        return;
+      }
 
-      return titleMatch || descMatch || tagMatch || categoryMatch;
-    }).slice(0, 10);
+      const frag = document.createDocumentFragment();
+      filtered.slice(0, 10).forEach((item) => {
+        const link = document.createElement('a');
+        link.href = `${urlPrefix}/${item.slug}`;
+        link.className = 'search-result-item';
 
-    displayResults(results, container);
-  }
+        const badge = document.createElement('span');
+        badge.className = `result-badge ${item.category.toLowerCase()}`;
+        badge.textContent = item.category;
+        link.appendChild(badge);
 
-  function displayResults(results: Post[], container: HTMLElement) {
-    if (results.length === 0) {
-      const msg = document.createElement('p');
-      msg.className = 'no-results';
-      msg.textContent = 'No results found';
-      container.replaceChildren(msg);
-      return;
+        const title = document.createElement('span');
+        title.className = 'result-title';
+        title.textContent = item.title;
+        link.appendChild(title);
+
+        if (variant === 'difficulty' && item.difficulty) {
+          const diff = document.createElement('span');
+          diff.className = `result-difficulty ${item.difficulty.toLowerCase()}`;
+          diff.textContent = item.difficulty;
+          link.appendChild(diff);
+        } else if (variant === 'meta') {
+          const meta = document.createElement('span');
+          meta.className = 'result-meta';
+          const parts: string[] = [];
+          if (item.moduleCount != null) parts.push(`${item.moduleCount} modules`);
+          if (item.topicCount != null) parts.push(`${item.topicCount} topics`);
+          if (item.difficulty) parts.push(item.difficulty);
+          meta.textContent = parts.join(' · ');
+          link.appendChild(meta);
+        }
+
+        frag.appendChild(link);
+      });
+      results!.replaceChildren(frag);
     }
 
-    const fragment = document.createDocumentFragment();
-    results.forEach(post => {
-      const link = document.createElement('a');
-      link.href = `/blog/${post.slug}`;
-      link.className = 'search-result-item';
-
-      const badge = document.createElement('span');
-      badge.className = `result-badge ${post.category.toLowerCase()}`;
-      badge.textContent = post.category;
-
-      const title = document.createElement('span');
-      title.className = 'result-title';
-      title.textContent = post.title;
-
-      link.appendChild(badge);
-      link.appendChild(title);
-      fragment.appendChild(link);
-    });
-    container.replaceChildren(fragment);
-  }
-
-  // Initialize search on page load
-  document.addEventListener('DOMContentLoaded', () => {
-    loadPosts();
-
-    const searchInput = document.getElementById('search-input') as HTMLInputElement;
-    searchInput?.addEventListener('input', (e) => {
-      clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(() => {
-        searchPosts((e.target as HTMLInputElement).value);
+    input.addEventListener('input', () => {
+      clearTimeout(timeout);
+      const q = input.value.trim().toLowerCase();
+      if (!q) {
+        results.replaceChildren();
+        return;
+      }
+      timeout = setTimeout(async () => {
+        await load();
+        render(items.filter((it) => matches(it, q)));
       }, 300);
     });
 
-    searchInput?.addEventListener('keydown', (e) => {
+    input.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
-        const container = document.getElementById('search-results');
-        if (container) container.replaceChildren();
-        searchInput.blur();
+        results.replaceChildren();
+        input.blur();
       }
     });
 
-    // Close search results when clicking outside
     document.addEventListener('click', (e) => {
-      const container = document.querySelector('.search-container');
-      if (!container?.contains(e.target as Node)) {
-        const results = document.getElementById('search-results');
-        if (results) results.replaceChildren();
+      if (!container.contains(e.target as Node)) {
+        results.replaceChildren();
       }
     });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll<HTMLElement>('.search-container').forEach(initSearch);
   });
 </script>
-
-<style>
-  .search-container {
-    position: relative;
-    width: 100%;
-    max-width: 600px;
-    margin: 0 auto;
-  }
-
-  .search-box {
-    position: relative;
-    width: 100%;
-  }
-
-  .search-icon {
-    position: absolute;
-    left: 1rem;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--text-secondary);
-    pointer-events: none;
-  }
-
-  .search-input {
-    width: 100%;
-    padding: 1rem 1rem 1rem 3rem;
-    background: var(--bg-secondary);
-    border: 2px solid var(--border);
-    border-radius: 12px;
-    color: var(--text-primary);
-    font-size: 1rem;
-    transition: all 0.3s ease;
-  }
-
-  .search-input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: var(--shadow-glow);
-  }
-
-  .search-input::placeholder {
-    color: var(--text-secondary);
-  }
-
-  .search-results {
-    position: absolute;
-    top: calc(100% + 0.5rem);
-    left: 0;
-    right: 0;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    max-height: 400px;
-    overflow-y: auto;
-    z-index: 100;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-  }
-
-  .search-results :global(.search-result-item) {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.6rem 1rem;
-    border-bottom: 1px solid rgba(0, 229, 255, 0.08);
-    text-decoration: none;
-    transition: background 0.2s ease;
-  }
-
-  .search-results :global(.search-result-item:last-child) {
-    border-bottom: none;
-  }
-
-  .search-results :global(.search-result-item:hover) {
-    background: var(--bg-tertiary);
-  }
-
-  .search-results :global(.result-badge) {
-    flex-shrink: 0;
-    font-size: 0.65rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    padding: 0.2rem 0.5rem;
-    border-radius: 4px;
-    letter-spacing: 0.03em;
-  }
-
-  .search-results :global(.result-badge.devops) {
-    background: rgba(255, 149, 0, 0.15);
-    color: var(--secondary);
-  }
-
-  .search-results :global(.result-badge.cloud) {
-    background: rgba(0, 229, 255, 0.15);
-    color: var(--primary);
-  }
-
-  .search-results :global(.result-badge.ai) {
-    background: rgba(77, 159, 255, 0.15);
-    color: var(--accent);
-  }
-
-  .search-results :global(.result-badge.security) {
-    background: rgba(255, 184, 0, 0.15);
-    color: var(--security);
-  }
-
-  .search-results :global(.result-title) {
-    font-size: 0.85rem;
-    font-weight: 400;
-    color: var(--text-primary);
-    line-height: 1.4;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .search-results :global(.search-result-item:hover .result-title) {
-    color: var(--primary);
-  }
-
-  .search-results :global(.no-results) {
-    padding: 1.5rem;
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-  }
-
-  @media (max-width: 768px) {
-    .search-results {
-      max-height: 300px;
-    }
-  }
-</style>

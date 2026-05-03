@@ -22,12 +22,30 @@ const { title } = Astro.props;
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <title>{title} | Admin - CloudNative Atlas</title>
+    <script is:inline>
+      // Prevent FOUC: apply sidebar state before first paint
+      (function() {
+        try {
+          if (localStorage.getItem('admin-sidebar-collapsed') === 'true') {
+            document.documentElement.classList.add('sidebar-collapsed');
+          }
+        } catch(e) {}
+        document.documentElement.classList.add('no-transition');
+      })();
+    </script>
   </head>
   <body>
-    <div class="admin-layout">
+    <div class="admin-layout" id="admin-layout">
       <AdminNav />
-      <main class="admin-main">
+      <main class="admin-main" id="admin-main">
         <header class="admin-header">
+          <button class="mobile-toggle-btn" id="mobile-sidebar-toggle" aria-label="Open menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
           <h1 class="admin-page-title">{title}</h1>
         </header>
         <div class="admin-content">
@@ -49,12 +67,22 @@ const { title } = Astro.props;
     margin-left: 260px;
     display: flex;
     flex-direction: column;
+    transition: margin-left 0.25s ease;
+    min-width: 0;
+  }
+
+  :global(html.sidebar-collapsed) .admin-main {
+    margin-left: 64px;
   }
 
   .admin-header {
-    padding: 1.5rem 2rem;
+    padding: 0 2rem;
     border-bottom: 1px solid rgba(0, 229, 255, 0.08);
     background: rgba(10, 14, 39, 0.6);
+    display: flex;
+    align-items: center;
+    height: 64px;
+    flex-shrink: 0;
   }
 
   .admin-page-title {
@@ -71,11 +99,38 @@ const { title } = Astro.props;
   .admin-content {
     padding: 2rem;
     flex: 1;
+    overflow-x: auto;
   }
 
   @media (max-width: 768px) {
     .admin-main {
-      margin-left: 0;
+      margin-left: 0 !important;
+    }
+
+    .admin-header {
+      padding: 1rem;
+    }
+
+    .admin-content {
+      padding: 1.25rem;
+    }
+
+    .admin-page-title {
+      font-size: 1.25rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .admin-header {
+      padding: 0.75rem;
+    }
+
+    .admin-content {
+      padding: 1rem;
+    }
+
+    .admin-page-title {
+      font-size: 1.1rem;
     }
   }
 </style>
@@ -87,23 +142,30 @@ const { title } = Astro.props;
     border: 1px solid rgba(0, 229, 255, 0.1);
     border-radius: 12px;
     padding: 1.5rem;
+    overflow-x: auto;
   }
 
   .admin-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.9rem;
+    min-width: 500px; /* horizontal scroll for small screens */
+  }
+
+  .admin-table thead {
+    background: rgba(11, 37, 64, 0.8);
   }
 
   .admin-table th {
     text-align: left;
     padding: 0.75rem 1rem;
-    color: var(--text-secondary);
+    color: var(--primary);
     font-weight: 600;
     font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    border-bottom: 1px solid rgba(0, 229, 255, 0.1);
+    border-bottom: 1px solid rgba(0, 229, 255, 0.15);
+    white-space: nowrap;
   }
 
   .admin-table td {
@@ -130,6 +192,7 @@ const { title } = Astro.props;
     transition: all 0.2s ease;
     text-decoration: none;
     font-family: inherit;
+    white-space: nowrap;
   }
 
   .admin-btn-primary {
@@ -160,6 +223,38 @@ const { title } = Astro.props;
 
   .admin-btn-danger:hover {
     background: rgba(244, 67, 54, 0.2);
+  }
+
+  .admin-btn-outline {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .admin-btn-outline:hover {
+    color: var(--primary);
+    border-color: rgba(0,229,255,0.3);
+    background: rgba(0,229,255,0.05);
+  }
+
+  .admin-btn-warning {
+    background: rgba(255, 152, 0, 0.1);
+    color: #ff9800;
+    border: 1px solid rgba(255, 152, 0, 0.2);
+  }
+
+  .admin-btn-warning:hover {
+    background: rgba(255, 152, 0, 0.2);
+  }
+
+  .admin-btn-success {
+    background: rgba(76, 175, 80, 0.1);
+    color: #4caf50;
+    border: 1px solid rgba(76, 175, 80, 0.2);
+  }
+
+  .admin-btn-success:hover {
+    background: rgba(76, 175, 80, 0.2);
   }
 
   .admin-btn-sm {
@@ -217,6 +312,7 @@ const { title } = Astro.props;
     font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
+    white-space: nowrap;
   }
 
   .admin-badge-devops {
@@ -267,5 +363,61 @@ const { title } = Astro.props;
     background: rgba(244, 67, 54, 0.1);
     border: 1px solid rgba(244, 67, 54, 0.3);
     color: #f44336;
+  }
+
+  /* ─── Responsive form layouts ─── */
+  .admin-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  @media (max-width: 768px) {
+    .admin-card {
+      padding: 1rem;
+      border-radius: 10px;
+    }
+
+    .admin-table {
+      font-size: 0.85rem;
+    }
+
+    .admin-table th,
+    .admin-table td {
+      padding: 0.6rem 0.75rem;
+    }
+
+    .admin-form-row {
+      grid-template-columns: 1fr;
+    }
+
+    .admin-actions {
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .admin-actions .admin-btn-sm {
+      text-align: center;
+      justify-content: center;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .admin-card {
+      padding: 0.75rem;
+      border-radius: 8px;
+    }
+
+    .admin-empty {
+      padding: 2rem 1rem;
+    }
+  }
+
+  /* Suppress transitions during initial page load to prevent FOUC */
+  html.no-transition,
+  html.no-transition *,
+  html.no-transition *::before,
+  html.no-transition *::after {
+    transition: none !important;
   }
 </style>
