@@ -1,0 +1,377 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { getContactMessage, updateContactMessage } from '../../../lib/contact-store';
+import { COUNTRIES } from '../../../data/countries';
+
+export const prerender = false;
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/admin/messages');
+
+const message = getContactMessage(id);
+if (!message) return Astro.redirect('/admin/messages');
+
+// Auto-mark as read on first view (silent — no UI feedback for this).
+if (!message.read) {
+  updateContactMessage(id, { read: true });
+  message.read = true;
+}
+
+const country = COUNTRIES.find((c) => c.code === message.country);
+const receivedDate = new Date(message.receivedAt);
+
+const mailtoSubject = encodeURIComponent('Re: your message to CloudNative Atlas');
+const mailtoBody = encodeURIComponent(
+  `Hi ${message.firstName},\n\nThanks for reaching out — \n\n— CloudNative Atlas Team\n\n` +
+    `--- your original message (${receivedDate.toLocaleString()}) ---\n${message.message}`
+);
+---
+
+<AdminLayout title={`Message from ${message.firstName} ${message.lastName}`}>
+  <div class="back-link-row">
+    <a href="/admin/messages" class="admin-btn admin-btn-outline admin-btn-sm">← All messages</a>
+  </div>
+
+  <div class="message-detail admin-card">
+    <header class="msg-header">
+      <div class="msg-from">
+        <div class="msg-avatar" aria-hidden="true">
+          {message.firstName.charAt(0).toUpperCase()}
+          {message.lastName.charAt(0).toUpperCase()}
+        </div>
+        <div class="msg-from-info">
+          <h2 class="msg-name">{message.firstName} {message.lastName}</h2>
+          <p class="msg-meta">
+            <a href={`mailto:${message.email}`} class="msg-link">{message.email}</a>
+            <span class="dot-sep">·</span>
+            <a href={`tel:${message.dialCode}${message.mobile}`} class="msg-link">
+              {message.dialCode} {message.mobile}
+            </a>
+          </p>
+        </div>
+      </div>
+      <div class="msg-when">
+        <p class="msg-when-date">{receivedDate.toLocaleDateString('en-US', {
+          weekday: 'short',
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        })}</p>
+        <p class="msg-when-time">{receivedDate.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+        })}</p>
+      </div>
+    </header>
+
+    <dl class="msg-fields">
+      <div class="msg-field">
+        <dt>Country</dt>
+        <dd>
+          <span class="country-code">{message.country}</span>
+          <span>{country?.name ?? message.country}</span>
+        </dd>
+      </div>
+      {message.ip && (
+        <div class="msg-field">
+          <dt>Origin IP</dt>
+          <dd><code>{message.ip}</code></dd>
+        </div>
+      )}
+      {message.userAgent && (
+        <div class="msg-field msg-field-wide">
+          <dt>User Agent</dt>
+          <dd><code class="ua">{message.userAgent}</code></dd>
+        </div>
+      )}
+    </dl>
+
+    <section class="msg-body-section">
+      <h3 class="msg-body-label">Message</h3>
+      <div class="msg-body" id="msg-body">{message.message}</div>
+    </section>
+
+    <footer class="msg-actions">
+      <a
+        href={`mailto:${message.email}?subject=${mailtoSubject}&body=${mailtoBody}`}
+        class="admin-btn admin-btn-primary"
+      >
+        Reply via email
+      </a>
+      <button id="copy-btn" class="admin-btn admin-btn-secondary">Copy message</button>
+      <button
+        id="toggle-read-btn"
+        class="admin-btn admin-btn-outline"
+        data-id={message.id}
+        data-read={message.read ? 'true' : 'false'}
+      >
+        Mark as unread
+      </button>
+      <button
+        id="delete-btn"
+        class="admin-btn admin-btn-danger"
+        data-id={message.id}
+        data-from={`${message.firstName} ${message.lastName}`}
+      >
+        Delete
+      </button>
+    </footer>
+  </div>
+</AdminLayout>
+
+<script>
+  const copyBtn = document.getElementById('copy-btn');
+  const toggleBtn = document.getElementById('toggle-read-btn') as HTMLButtonElement;
+  const deleteBtn = document.getElementById('delete-btn') as HTMLButtonElement;
+  const body = document.getElementById('msg-body');
+
+  copyBtn?.addEventListener('click', async () => {
+    if (!body) return;
+    try {
+      await navigator.clipboard.writeText(body.textContent ?? '');
+      const original = copyBtn.textContent;
+      copyBtn.textContent = 'Copied ✓';
+      setTimeout(() => { copyBtn.textContent = original ?? 'Copy message'; }, 1500);
+    } catch {
+      alert('Unable to copy — your browser blocked the request.');
+    }
+  });
+
+  toggleBtn?.addEventListener('click', async () => {
+    const id = toggleBtn.dataset.id;
+    const current = toggleBtn.dataset.read === 'true';
+    const next = !current;
+    toggleBtn.disabled = true;
+    try {
+      const res = await fetch(`/api/admin/messages/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ read: next }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(`Failed to update: ${data.error || 'Unknown error'}`);
+        return;
+      }
+      toggleBtn.dataset.read = String(next);
+      toggleBtn.textContent = next ? 'Mark as unread' : 'Mark as read';
+    } catch {
+      alert('Network error.');
+    } finally {
+      toggleBtn.disabled = false;
+    }
+  });
+
+  deleteBtn?.addEventListener('click', async () => {
+    const id = deleteBtn.dataset.id;
+    const from = deleteBtn.dataset.from;
+    if (!confirm(`Delete the message from "${from}"? This cannot be undone.`)) return;
+
+    try {
+      const res = await fetch(`/api/admin/messages/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        window.location.href = '/admin/messages?deleted=1';
+      } else {
+        const data = await res.json();
+        alert(`Failed to delete: ${data.error || 'Unknown error'}`);
+      }
+    } catch {
+      alert('Network error.');
+    }
+  });
+</script>
+
+<style>
+  .back-link-row {
+    margin-bottom: 1.25rem;
+  }
+
+  .message-detail {
+    padding: 2rem;
+  }
+
+  .msg-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(0, 229, 255, 0.1);
+    margin-bottom: 1.5rem;
+  }
+
+  .msg-from {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-width: 0;
+  }
+
+  .msg-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--gradient-1);
+    color: var(--bg-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    box-shadow: 0 0 16px rgba(0, 229, 255, 0.25);
+  }
+
+  .msg-from-info {
+    min-width: 0;
+  }
+
+  .msg-name {
+    font-size: 1.4rem;
+    margin: 0 0 0.25rem;
+    color: var(--text-primary);
+  }
+
+  .msg-meta {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .msg-link {
+    color: var(--primary);
+    text-decoration: none;
+  }
+  .msg-link:hover {
+    text-decoration: underline;
+  }
+
+  .dot-sep {
+    color: var(--text-secondary);
+    opacity: 0.5;
+  }
+
+  .msg-when {
+    text-align: right;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+  }
+  .msg-when-date {
+    margin: 0;
+    color: var(--text-primary);
+  }
+  .msg-when-time {
+    margin: 0.15rem 0 0;
+    font-size: 0.78rem;
+  }
+
+  .msg-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.5rem 1.5rem;
+    margin: 0 0 1.5rem;
+    padding: 1rem 1.25rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(0, 229, 255, 0.06);
+    border-radius: 8px;
+  }
+
+  .msg-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .msg-field-wide {
+    grid-column: 1 / -1;
+  }
+
+  .msg-field dt {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    font-weight: 700;
+  }
+
+  .msg-field dd {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .msg-field dd code {
+    font-family: 'Fira Code', monospace;
+    font-size: 0.82rem;
+    background: rgba(0, 229, 255, 0.06);
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    color: var(--primary);
+  }
+
+  .ua {
+    word-break: break-all;
+    white-space: normal;
+  }
+
+  .country-code {
+    background: rgba(0, 229, 255, 0.1);
+    color: var(--primary);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+
+  .msg-body-section {
+    margin-bottom: 2rem;
+  }
+
+  .msg-body-label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    margin: 0 0 0.6rem;
+  }
+
+  .msg-body {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(0, 229, 255, 0.08);
+    border-radius: 8px;
+    padding: 1.25rem;
+    color: var(--text-primary);
+    font-size: 1rem;
+    line-height: 1.65;
+    /* Preserve newlines authored by the visitor without rendering HTML */
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+
+  .msg-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(0, 229, 255, 0.08);
+  }
+
+  .admin-btn-outline {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .admin-btn-outline:hover {
+    color: var(--primary);
+    border-color: rgba(0, 229, 255, 0.3);
+    background: rgba(0, 229, 255, 0.05);
+  }
+</style>

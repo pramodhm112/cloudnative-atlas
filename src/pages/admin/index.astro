@@ -1,11 +1,17 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { getCollection } from 'astro:content';
+import { listCourses } from '../../lib/course-manager';
+import { listContactMessages } from '../../lib/contact-store';
 
 export const prerender = false;
 
 const posts = await getCollection('blog');
 const tests = await getCollection('tests');
+const projects = await getCollection('projects');
+const courses = listCourses();
+const messages = listContactMessages();
+const unreadMessages = messages.filter((m) => !m.read).length;
 
 const categories = ['DevOps', 'Cloud', 'AI', 'Security'];
 const postsByCategory = categories.map((cat) => ({
@@ -16,39 +22,69 @@ const postsByCategory = categories.map((cat) => ({
 
 <AdminLayout title="Dashboard">
   <div class="dashboard-stats">
-    <a href="/admin/posts" class="stat-card">
-      <div class="stat-icon">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <a href="/admin/posts" class="stat-card stat-card-small">
+      <div class="stat-icon-inline">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
           <polyline points="14 2 14 8 20 8"></polyline>
           <line x1="16" y1="13" x2="8" y2="13"></line>
           <line x1="16" y1="17" x2="8" y2="17"></line>
         </svg>
       </div>
-      <div class="stat-info">
-        <span class="stat-number">{posts.length}</span>
-        <span class="stat-label">Blog Posts</span>
-      </div>
+      <span class="stat-number-small">{posts.length}</span>
+      <span class="stat-label-small">Blog {posts.length === 1 ? 'Post' : 'Posts'}</span>
     </a>
 
-    <a href="/admin/tests" class="stat-card">
-      <div class="stat-icon tests-icon">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <a href="/admin/tests" class="stat-card stat-card-small">
+      <div class="stat-icon-inline tests-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="9 11 12 14 22 4"></polyline>
           <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
         </svg>
       </div>
-      <div class="stat-info">
-        <span class="stat-number">{tests.length}</span>
-        <span class="stat-label">Practice Tests</span>
+      <span class="stat-number-small">{tests.length}</span>
+      <span class="stat-label-small">Practice {tests.length === 1 ? 'Test' : 'Tests'}</span>
+    </a>
+
+    <a href="/admin/projects" class="stat-card stat-card-small">
+      <div class="stat-icon-inline projects-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="16 18 22 12 16 6"></polyline>
+          <polyline points="8 6 2 12 8 18"></polyline>
+        </svg>
       </div>
+      <span class="stat-number-small">{projects.length}</span>
+      <span class="stat-label-small">{projects.length === 1 ? 'Project' : 'Projects'}</span>
+    </a>
+
+    <a href="/admin/courses" class="stat-card stat-card-small">
+      <div class="stat-icon-inline courses-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+        </svg>
+      </div>
+      <span class="stat-number-small">{courses.length}</span>
+      <span class="stat-label-small">{courses.length === 1 ? 'Course' : 'Courses'}</span>
+    </a>
+
+    <a href="/admin/messages" class="stat-card stat-card-small">
+      <div class="stat-icon-inline messages-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+          <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
+        </svg>
+        {unreadMessages > 0 && <span class="badge-dot" aria-label={`${unreadMessages} unread`}>{unreadMessages}</span>}
+      </div>
+      <span class="stat-number-small">{messages.length}</span>
+      <span class="stat-label-small">{messages.length === 1 ? 'Message' : 'Messages'}</span>
     </a>
 
     {postsByCategory.map((cat) => (
       <div class="stat-card stat-card-small">
         <span class={`admin-badge admin-badge-${cat.name.toLowerCase()}`}>{cat.name}</span>
         <span class="stat-number-small">{cat.count}</span>
-        <span class="stat-label-small">posts</span>
+        <span class="stat-label-small">{cat.count === 1 ? 'Post' : 'Posts'}</span>
       </div>
     ))}
   </div>
@@ -69,6 +105,20 @@ const postsByCategory = categories.map((cat) => ({
           <line x1="5" y1="12" x2="19" y2="12"></line>
         </svg>
         <span>New Practice Test</span>
+      </a>
+      <a href="/admin/projects/new" class="action-card">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span>New Project</span>
+      </a>
+      <a href="/admin/courses/new" class="action-card">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span>New Course</span>
       </a>
     </div>
   </div>
@@ -123,10 +173,11 @@ const postsByCategory = categories.map((cat) => ({
     background: rgba(15, 30, 56, 0.6);
     border: 1px solid rgba(0, 229, 255, 0.1);
     border-radius: 12px;
-    padding: 1.5rem;
+    padding: 1rem 1.25rem;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 1rem;
+    gap: 0.5rem;
     text-decoration: none;
     transition: all 0.2s ease;
   }
@@ -137,31 +188,42 @@ const postsByCategory = categories.map((cat) => ({
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
   }
 
-  .stat-card-small {
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 1rem;
-  }
-
-  .stat-icon {
+  .stat-icon-inline {
     color: var(--primary);
     opacity: 0.8;
+    display: flex;
+    align-items: center;
   }
 
   .tests-icon {
     color: var(--secondary);
   }
 
-  .stat-info {
-    display: flex;
-    flex-direction: column;
+  .courses-icon {
+    color: var(--accent, #4d9fff);
   }
 
-  .stat-number {
-    font-size: 2rem;
+  .messages-icon {
+    color: #6ee7b7;
+    position: relative;
+  }
+
+  .badge-dot {
+    position: absolute;
+    top: -6px;
+    right: -10px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    background: var(--secondary);
+    color: var(--bg-primary);
+    border-radius: 9px;
+    font-size: 0.7rem;
     font-weight: 700;
-    color: var(--text-primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 12px rgba(255, 149, 0, 0.5);
     line-height: 1;
   }
 
@@ -169,17 +231,13 @@ const postsByCategory = categories.map((cat) => ({
     font-size: 1.5rem;
     font-weight: 700;
     color: var(--text-primary);
-  }
-
-  .stat-label {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    font-weight: 500;
+    line-height: 1;
   }
 
   .stat-label-small {
     font-size: 0.75rem;
     color: var(--text-secondary);
+    text-align: center;
   }
 
   .dashboard-actions {
@@ -224,5 +282,30 @@ const postsByCategory = categories.map((cat) => ({
 
   .dashboard-recent {
     margin-bottom: 2rem;
+  }
+
+  @media (max-width: 768px) {
+    .dashboard-stats {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+    }
+
+    .stat-card {
+      padding: 0.75rem;
+    }
+
+    .stat-number-small {
+      font-size: 1.25rem;
+    }
+
+    .action-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .dashboard-stats {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 </style>
