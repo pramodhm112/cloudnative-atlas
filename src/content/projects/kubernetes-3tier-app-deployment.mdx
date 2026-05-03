@@ -1,0 +1,218 @@
+---
+title: Kubernetes 3-Tier Application Deployment
+description: >-
+  Deploy a production-ready 3-tier task management application on Kubernetes
+  featuring a Flask REST API backend, PostgreSQL database, and Nginx frontend
+  with step-by-step Docker containerization and Kubernetes orchestration
+pubDate: '2024-06-15'
+author: Tech Team
+category: DevOps
+difficulty: Intermediate
+tags:
+  - kubernetes
+  - docker
+  - microservices
+  - deployment
+  - containerization
+technologies:
+  - Kubernetes
+  - Docker
+  - Flask
+  - PostgreSQL
+  - Nginx
+status: published
+sourceUrl: 'https://github.com/pramodhm112/k8s-3tier-app-docker'
+---
+
+## Architecture Overview
+
+This project deploys a **3-tier task management application** on Kubernetes. The architecture consists of three independently containerized services communicating over a Kubernetes network.
+
+| Tier | Service | Technology | Port |
+|------|---------|-----------|------|
+| Frontend | Web Dashboard | Nginx + HTML/CSS/JS | 80 |
+| Backend | REST API | Flask (Python) | 5000 |
+| Database | Data Store | PostgreSQL | 5432 |
+
+### How It Works
+
+1. **Users** access the Nginx-served dashboard through a NodePort service (port 30080)
+2. **Frontend** sends REST API calls to the Flask backend via Kubernetes internal DNS
+3. **Backend** processes requests and persists data in PostgreSQL
+4. **Database** initializes with schema scripts on first boot
+
+## Prerequisites
+
+Before starting this project, ensure you have:
+
+- **Docker** installed and running
+- Access to a **Kubernetes cluster** (local via Minikube/Kind, or a cloud-managed playground)
+- A **Docker Hub account** for pushing container images
+- **kubectl** CLI configured to communicate with your cluster
+- Basic knowledge of YAML manifests and Docker commands
+
+> **Tip:** You can use any Kubernetes playground environment for this project. No cloud account billing is required.
+
+## Phase 1: Build and Push Docker Images
+
+Each service has its own `Dockerfile`. We'll build all three images and push them to Docker Hub.
+
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/pramodhm112/k8s-3tier-app-docker.git
+cd k8s-3tier-app-docker
+```
+
+### Step 2: Build the Frontend Image
+
+```bash
+docker build -t <your-dockerhub-username>/k8s-frontend:latest ./frontend
+```
+
+### Step 3: Build the Backend Image
+
+```bash
+docker build -t <your-dockerhub-username>/k8s-backend:latest ./backend
+```
+
+### Step 4: Build the Database Image
+
+```bash
+docker build -t <your-dockerhub-username>/k8s-db:latest ./db
+```
+
+### Step 5: Push All Images to Docker Hub
+
+```bash
+docker login
+docker push <your-dockerhub-username>/k8s-frontend:latest
+docker push <your-dockerhub-username>/k8s-backend:latest
+docker push <your-dockerhub-username>/k8s-db:latest
+```
+
+> **Note:** Replace `<your-dockerhub-username>` with your actual Docker Hub username in all commands above and in the Kubernetes manifests.
+
+## Phase 2: Deploy to Kubernetes
+
+The `k8s/` directory contains numbered manifest files that should be applied in order. Each manifest defines a Kubernetes resource.
+
+### Step 1: Create the Namespace (Optional)
+
+```bash
+kubectl create namespace taskapp
+```
+
+### Step 2: Deploy the Database
+
+```bash
+kubectl apply -f k8s/01-db-configmap.yaml
+kubectl apply -f k8s/02-db-secret.yaml
+kubectl apply -f k8s/03-db-deployment.yaml
+kubectl apply -f k8s/04-db-service.yaml
+```
+
+Wait for the database pod to be ready:
+
+```bash
+kubectl get pods -l app=db --watch
+```
+
+### Step 3: Deploy the Backend API
+
+```bash
+kubectl apply -f k8s/05-backend-deployment.yaml
+kubectl apply -f k8s/06-backend-service.yaml
+```
+
+### Step 4: Deploy the Frontend
+
+```bash
+kubectl apply -f k8s/07-frontend-configmap.yaml
+kubectl apply -f k8s/08-frontend-deployment.yaml
+kubectl apply -f k8s/09-frontend-service.yaml
+```
+
+### Step 5: Verify All Pods Are Running
+
+```bash
+kubectl get pods
+kubectl get services
+```
+
+You should see all three services running with their respective ClusterIP/NodePort assignments.
+
+## Accessing the Application
+
+### Via Port-Forward (Development)
+
+```bash
+kubectl port-forward service/frontend 30080:80
+```
+
+Then open `http://localhost:30080` in your browser.
+
+### Via NodePort (Playground)
+
+If your cluster exposes NodePort services directly:
+
+```
+http://<node-ip>:30080
+```
+
+## API Reference
+
+The Flask backend exposes these REST endpoints:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/tasks` | List all tasks |
+| `POST` | `/api/tasks` | Create a new task |
+| `GET` | `/api/tasks/:id` | Get a specific task |
+| `PUT` | `/api/tasks/:id` | Update a task |
+| `DELETE` | `/api/tasks/:id` | Delete a task |
+| `GET` | `/api/health` | Health check endpoint |
+
+### Example: Create a Task
+
+```bash
+curl -X POST http://localhost:30080/api/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Learn Kubernetes", "description": "Complete the K8s deployment project"}'
+```
+
+### Example: List All Tasks
+
+```bash
+curl http://localhost:30080/api/tasks
+```
+
+## Key Concepts Covered
+
+- **Multi-container orchestration** with Kubernetes Deployments
+- **Service discovery** using ClusterIP and DNS resolution
+- **ConfigMaps and Secrets** for environment configuration
+- **Docker multi-stage builds** for optimized images
+- **Ordered deployment** with numbered manifests
+- **Health checks** for service readiness
+
+## Cleanup
+
+Remove all deployed resources when you're done:
+
+```bash
+kubectl delete -f k8s/
+kubectl delete namespace taskapp  # if namespace was created
+```
+
+> **Tip:** Always clean up playground resources after completing the project to free up cluster capacity.
+
+## Next Steps
+
+After completing this project, consider:
+
+- Adding **Horizontal Pod Autoscaler** (HPA) for the backend
+- Implementing **Ingress** instead of NodePort for production routing
+- Adding **Persistent Volumes** for database data durability
+- Setting up **CI/CD pipelines** to automate image builds and deployments
+- Exploring **Helm charts** to package the entire application

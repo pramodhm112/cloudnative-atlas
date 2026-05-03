@@ -60,4 +60,21 @@ const courses = defineCollection({
   }),
 });
 
-export const collections = { blog, tests, courses };
+const projects = defineCollection({
+  loader: glob({ pattern: '**/*.mdx', base: './src/content/projects' }),
+  schema: z.object({
+    title: z.string(),
+    description: z.string(),
+    pubDate: z.coerce.date(),
+    author: z.string().default('CloudNative Atlas Team'),
+    category: z.enum(['DevOps', 'Cloud', 'AI', 'Security']),
+    difficulty: z.enum(['Beginner', 'Intermediate', 'Advanced']),
+    tags: z.array(z.string()).default([]),
+    technologies: z.array(z.string()).default([]),
+    image: z.string().optional(),
+    sourceUrl: z.url().optional(),
+    status: z.enum(['draft', 'published']).default('published'),
+  }),
+});
+
+export const collections = { blog, tests, courses, projects };
