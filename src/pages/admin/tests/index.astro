@@ -4,7 +4,7 @@ import { listContent, parseQuestions } from '../../../lib/content-manager';
 
 export const prerender = false;
 
-const tests = listContent('tests');
+const tests = await listContent('tests');
 const testsWithQuestions = tests.map((test) => ({
   ...test,
   questionCount: parseQuestions(test.body).length,

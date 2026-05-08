@@ -3,7 +3,7 @@ import { listCourses } from '../../lib/course-manager';
 import { isPublished } from '../../lib/publish-status';
 
 export const GET: APIRoute = async () => {
-  const courses = listCourses().filter((c) => isPublished(c.data));
+  const courses = (await listCourses()).filter((c) => isPublished(c.data));
 
   const data = courses.map((c) => ({
     slug: c.slug,

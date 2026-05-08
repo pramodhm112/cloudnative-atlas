@@ -48,7 +48,7 @@ export const POST: APIRoute = ({ request, clientAddress }) =>
     }
 
     const userAgent = request.headers.get('user-agent') || undefined;
-    const stored = storeContactMessage(body, { ip, userAgent });
+    const stored = await storeContactMessage(body, { ip, userAgent });
 
     logger.info('contact.received', {
       id: stored.id,

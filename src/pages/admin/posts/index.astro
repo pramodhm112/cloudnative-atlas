@@ -4,7 +4,7 @@ import { listContent } from '../../../lib/content-manager';
 
 export const prerender = false;
 
-const posts = listContent('blog').sort((a, b) => {
+const posts = (await listContent('blog')).sort((a, b) => {
   const dateA = new Date(a.frontmatter.pubDate as string).getTime();
   const dateB = new Date(b.frontmatter.pubDate as string).getTime();
   return dateB - dateA;

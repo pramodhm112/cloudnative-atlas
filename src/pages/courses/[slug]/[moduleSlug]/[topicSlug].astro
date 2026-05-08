@@ -8,8 +8,8 @@ import { readSettings } from '../../../../lib/settings-manager';
 import { isPublished } from '../../../../lib/publish-status';
 import { renderMarkdown, stripLeadingTitle } from '../../../../lib/markdown';
 
-export function getStaticPaths() {
-  const courses = listCourses().filter((c) => isPublished(c.data));
+export async function getStaticPaths() {
+  const courses = (await listCourses()).filter((c) => isPublished(c.data));
   const paths: Array<{ params: Record<string, string>; props: Record<string, unknown> }> = [];
 
   for (const course of courses) {
@@ -37,7 +37,7 @@ export function getStaticPaths() {
 }
 
 const { course, courseSlug, module: currentModule, topic, allModules } = Astro.props;
-const flags = readSettings();
+const flags = await readSettings();
 // Strip the first-line heading if it matches the topic title so we don't
 // render "What Are Containers?" twice (once as the gradient page heading,
 // once as the first line of the markdown body).

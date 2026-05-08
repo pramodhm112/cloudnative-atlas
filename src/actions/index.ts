@@ -17,6 +17,7 @@ import {
 } from '../lib/course-manager';
 import type { CourseData } from '../lib/course-manager';
 import { writeSettings } from '../lib/settings-manager';
+import { revalidate } from '../lib/revalidate';
 
 const slugSchema = z.string().regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/, 'Invalid slug');
 const categorySchema = z.enum(['DevOps', 'Cloud', 'AI', 'Security']);
@@ -61,7 +62,7 @@ export const server = {
       }),
       handler: async (input) => {
         let slug = generateSlug(input.title);
-        if (contentExists('blog', slug)) {
+        if (await contentExists('blog', slug)) {
           slug = `${slug}-${Date.now().toString(36)}`;
         }
         const frontmatter: Record<string, unknown> = {
@@ -74,7 +75,8 @@ export const server = {
           status: input.status,
         };
         if (input.image) frontmatter.image = input.image;
-        writeContent('blog', slug, frontmatter, input.body);
+        await writeContent('blog', slug, frontmatter, input.body);
+        await revalidate(`posts.create:${slug}`);
         return { slug };
       },
     }),
@@ -93,7 +95,7 @@ export const server = {
         status: statusSchema.optional(),
       }),
       handler: async (input) => {
-        const existing = readContent('blog', input.slug);
+        const existing = await readContent('blog', input.slug);
         if (!existing) {
           throw new ActionError({ code: 'NOT_FOUND', message: 'Post not found' });
         }
@@ -112,7 +114,8 @@ export const server = {
           frontmatter.image = existing.frontmatter.image;
         }
         const updatedBody = input.body !== undefined ? input.body : existing.body;
-        writeContent('blog', input.slug, frontmatter, updatedBody);
+        await writeContent('blog', input.slug, frontmatter, updatedBody);
+        await revalidate(`posts.update:${input.slug}`);
         return { slug: input.slug };
       },
     }),
@@ -120,10 +123,11 @@ export const server = {
     delete: defineAction({
       input: z.object({ slug: slugSchema }),
       handler: async ({ slug }) => {
-        const deleted = deleteContent('blog', slug);
+        const deleted = await deleteContent('blog', slug);
         if (!deleted) {
           throw new ActionError({ code: 'NOT_FOUND', message: 'Post not found' });
         }
+        await revalidate(`posts.delete:${slug}`);
         return { success: true };
       },
     }),
@@ -144,7 +148,7 @@ export const server = {
       }),
       handler: async (input) => {
         let slug = generateSlug(input.title);
-        if (contentExists('tests', slug)) {
+        if (await contentExists('tests', slug)) {
           slug = `${slug}-${Date.now().toString(36)}`;
         }
         const frontmatter: Record<string, unknown> = {
@@ -163,7 +167,8 @@ export const server = {
           }
         }
         const body = serializeQuestions(input.questions);
-        writeContent('tests', slug, frontmatter, body);
+        await writeContent('tests', slug, frontmatter, body);
+        await revalidate(`tests.create:${slug}`);
         return { slug };
       },
     }),
@@ -182,7 +187,7 @@ export const server = {
         status: statusSchema.optional(),
       }),
       handler: async (input) => {
-        const existing = readContent('tests', input.slug);
+        const existing = await readContent('tests', input.slug);
         if (!existing) {
           throw new ActionError({ code: 'NOT_FOUND', message: 'Test not found' });
         }
@@ -209,7 +214,8 @@ export const server = {
         if (input.questions && input.questions.length > 0) {
           body = serializeQuestions(input.questions);
         }
-        writeContent('tests', input.slug, frontmatter, body);
+        await writeContent('tests', input.slug, frontmatter, body);
+        await revalidate(`tests.update:${input.slug}`);
         return { slug: input.slug };
       },
     }),
@@ -217,10 +223,11 @@ export const server = {
     delete: defineAction({
       input: z.object({ slug: slugSchema }),
       handler: async ({ slug }) => {
-        const deleted = deleteContent('tests', slug);
+        const deleted = await deleteContent('tests', slug);
         if (!deleted) {
           throw new ActionError({ code: 'NOT_FOUND', message: 'Test not found' });
         }
+        await revalidate(`tests.delete:${slug}`);
         return { success: true };
       },
     }),
@@ -239,7 +246,7 @@ export const server = {
       }),
       handler: async (input) => {
         let slug = generateCourseSlug(input.title);
-        if (courseExists(slug)) {
+        if (await courseExists(slug)) {
           slug = `${slug}-${Date.now().toString(36)}`;
         }
         const courseData: CourseData = {
@@ -251,7 +258,8 @@ export const server = {
           modules: input.modules,
           status: input.status,
         };
-        writeCourse(slug, courseData);
+        await writeCourse(slug, courseData);
+        await revalidate(`courses.create:${slug}`);
         return { slug };
       },
     }),
@@ -268,7 +276,7 @@ export const server = {
         status: statusSchema.optional(),
       }),
       handler: async (input) => {
-        const existing = readCourse(input.slug);
+        const existing = await readCourse(input.slug);
         if (!existing) {
           throw new ActionError({ code: 'NOT_FOUND', message: 'Course not found' });
         }
@@ -281,7 +289,8 @@ export const server = {
           modules: input.modules ?? existing.data.modules,
           status: input.status ?? existing.data.status ?? 'published',
         };
-        writeCourse(input.slug, courseData);
+        await writeCourse(input.slug, courseData);
+        await revalidate(`courses.update:${input.slug}`);
         return { slug: input.slug };
       },
     }),
@@ -289,10 +298,11 @@ export const server = {
     delete: defineAction({
       input: z.object({ slug: slugSchema }),
       handler: async ({ slug }) => {
-        const deleted = deleteCourse(slug);
+        const deleted = await deleteCourse(slug);
         if (!deleted) {
           throw new ActionError({ code: 'NOT_FOUND', message: 'Course not found' });
         }
+        await revalidate(`courses.delete:${slug}`);
         return { success: true };
       },
     }),
@@ -305,7 +315,9 @@ export const server = {
         enableVideos: z.boolean().optional(),
       }),
       handler: async (input) => {
-        return writeSettings(input);
+        const result = await writeSettings(input);
+        await revalidate('settings.update');
+        return result;
       },
     }),
   },

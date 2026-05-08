@@ -9,7 +9,7 @@ import { formatTag } from '../../utils/formatTag';
 import { isPublished } from '../../lib/publish-status';
 import { computeCategoryCounts } from '../../utils/categoryCounts';
 
-const courses = listCourses()
+const courses = (await listCourses())
   .filter((c) => isPublished(c.data))
   .sort((a, b) => a.data.title.localeCompare(b.data.title));
 const categories = ['All', 'DevOps', 'Cloud', 'AI', 'Security'];

@@ -9,8 +9,8 @@ export const prerender = false;
 const posts = await getCollection('blog');
 const tests = await getCollection('tests');
 const projects = await getCollection('projects');
-const courses = listCourses();
-const messages = listContactMessages();
+const courses = await listCourses();
+const messages = await listContactMessages();
 const unreadMessages = messages.filter((m) => !m.read).length;
 
 const categories = ['DevOps', 'Cloud', 'AI', 'Security'];

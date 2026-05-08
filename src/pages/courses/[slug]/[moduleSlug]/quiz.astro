@@ -5,8 +5,8 @@ import { listCourses, getCourseNavSequence, getPrevNext } from '../../../../lib/
 import type { QuizQuestion } from '../../../../lib/course-manager';
 import { isPublished } from '../../../../lib/publish-status';
 
-export function getStaticPaths() {
-  const courses = listCourses().filter((c) => isPublished(c.data));
+export async function getStaticPaths() {
+  const courses = (await listCourses()).filter((c) => isPublished(c.data));
   const paths: Array<{ params: Record<string, string>; props: Record<string, unknown> }> = [];
 
   for (const course of courses) {

@@ -7,8 +7,8 @@ import { readSettings } from '../../lib/settings-manager';
 import { isPublished } from '../../lib/publish-status';
 import { formatTag } from '../../utils/formatTag';
 
-export function getStaticPaths() {
-  const courses = listCourses().filter((c) => isPublished(c.data));
+export async function getStaticPaths() {
+  const courses = (await listCourses()).filter((c) => isPublished(c.data));
   return courses.map((course) => ({
     params: { slug: course.slug },
     props: { course: course.data, slug: course.slug },
@@ -16,7 +16,7 @@ export function getStaticPaths() {
 }
 
 const { course, slug } = Astro.props;
-const flags = readSettings();
+const flags = await readSettings();
 const totalTopics = course.modules.reduce((sum: number, m: ModuleData) => sum + m.topics.length, 0);
 ---
 

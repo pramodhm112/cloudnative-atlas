@@ -5,7 +5,7 @@ import { COUNTRIES } from '../../../data/countries';
 
 export const prerender = false;
 
-const messages = listContactMessages();
+const messages = await listContactMessages();
 const unreadCount = messages.filter((m) => !m.read).length;
 
 // Build an ISO-code → country-name map for nicer table cells.

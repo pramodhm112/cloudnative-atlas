@@ -5,7 +5,7 @@ import { readContent, parseQuestions } from '../../../../lib/content-manager';
 export const prerender = false;
 
 const { slug } = Astro.params;
-const test = slug ? readContent('tests', slug) : null;
+const test = slug ? await readContent('tests', slug) : null;
 
 if (!test) {
   return Astro.redirect('/admin/tests');

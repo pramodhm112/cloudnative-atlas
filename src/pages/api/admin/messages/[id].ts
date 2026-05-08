@@ -13,6 +13,7 @@ import {
   deleteContactMessage,
 } from '../../../../lib/contact-store';
 import { logger } from '../../../../lib/logger';
+import { revalidate } from '../../../../lib/revalidate';
 
 export const prerender = false;
 
@@ -30,7 +31,7 @@ export const GET: APIRoute = ({ params }) =>
     const { id } = params;
     if (!id || !ID_RE.test(id)) return badRequest('Invalid id', 'INVALID_ID');
 
-    const message = getContactMessage(id);
+    const message = await getContactMessage(id);
     if (!message) return notFound('Message not found');
 
     return jsonResponse(message);
@@ -44,7 +45,7 @@ export const PUT: APIRoute = ({ params, request }) =>
     const body = await parseJsonBody(request, UpdateSchema);
     if (body instanceof Response) return body;
 
-    const updated = updateContactMessage(id, { read: body.read });
+    const updated = await updateContactMessage(id, { read: body.read });
     if (!updated) return notFound('Message not found');
 
     logger.info('admin.message.updated', { id, read: updated.read });
@@ -56,9 +57,12 @@ export const DELETE: APIRoute = ({ params }) =>
     const { id } = params;
     if (!id || !ID_RE.test(id)) return badRequest('Invalid id', 'INVALID_ID');
 
-    const deleted = deleteContactMessage(id);
+    const deleted = await deleteContactMessage(id);
     if (!deleted) return notFound('Message not found');
 
     logger.info('admin.message.deleted', { id });
+    // Admin-only route, but the unread-count badge on /admin uses
+    // server-rendered HTML so a revalidate refreshes that.
+    await revalidate(`messages.delete:${id}`);
     return jsonResponse({ success: true });
   });

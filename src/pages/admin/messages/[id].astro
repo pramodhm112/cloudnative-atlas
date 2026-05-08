@@ -8,12 +8,12 @@ export const prerender = false;
 const { id } = Astro.params;
 if (!id) return Astro.redirect('/admin/messages');
 
-const message = getContactMessage(id);
+const message = await getContactMessage(id);
 if (!message) return Astro.redirect('/admin/messages');
 
 // Auto-mark as read on first view (silent — no UI feedback for this).
 if (!message.read) {
-  updateContactMessage(id, { read: true });
+  await updateContactMessage(id, { read: true });
   message.read = true;
 }
 

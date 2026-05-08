@@ -5,7 +5,7 @@ import { readContent } from '../../../../lib/content-manager';
 export const prerender = false;
 
 const { slug } = Astro.params;
-const post = slug ? readContent('blog', slug) : null;
+const post = slug ? await readContent('blog', slug) : null;
 
 if (!post) {
   return Astro.redirect('/admin/posts');
