@@ -4,7 +4,10 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "astro dev",
+    "prebuild": "tsx --env-file=.env scripts/sync-from-supabase.ts",
+    "predev": "tsx --env-file=.env scripts/sync-from-supabase.ts",
     "build": "astro build",
+    "db:sync-content": "tsx --env-file=.env scripts/sync-from-supabase.ts",
     "preview": "astro preview",
     "astro": "astro",
     "check": "astro check",
@@ -12,7 +15,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:migrate-content": "tsx --env-file=.env scripts/migrate-to-supabase.ts"
   },
   "engines": {
     "node": ">=20.3.0"
@@ -21,8 +25,8 @@
     "@astrojs/mdx": "^5.0.4",
     "@astrojs/sitemap": "^3.7.2",
     "@astrojs/vercel": "^10.0.6",
+    "@supabase/supabase-js": "^2.105.1",
     "astro": "^6.1.10",
-    "gray-matter": "^4.0.3",
     "isomorphic-dompurify": "^3.12.0",
     "marked": "^18.0.0"
   },
@@ -32,8 +36,10 @@
     "@typescript-eslint/parser": "^8.59.1",
     "eslint": "^10.2.1",
     "eslint-plugin-astro": "^1.7.0",
+    "gray-matter": "^4.0.3",
     "prettier": "^3.8.3",
     "prettier-plugin-astro": "^0.14.1",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.59.1",
     "vitest": "^4.1.5",
