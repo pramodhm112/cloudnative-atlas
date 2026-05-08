@@ -1,12 +1,35 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import matter from 'gray-matter';
+/**
+ * Content store for blog posts + practice tests, backed by Supabase.
+ *
+ * Public API mirrors the previous filesystem-backed implementation so
+ * existing call sites — admin Actions, admin edit pages — keep working
+ * without changes:
+ *
+ *   listContent(collection)            → ContentItem[]
+ *   readContent(collection, slug)      → ContentItem | null
+ *   writeContent(c, slug, fm, body)    → void
+ *   deleteContent(c, slug)             → boolean
+ *   contentExists(c, slug)             → boolean
+ *   generateSlug(title)                → string  (pure)
+ *   serializeQuestions / parseQuestions  (pure)
+ *
+ * The mapping between camelCase frontmatter (used everywhere in JS) and
+ * snake_case Postgres columns lives entirely in this file. Callers never
+ * see snake_case.
+ *
+ * `body` continues to hold raw MDX. For practice tests, the body uses the
+ * existing `> question` / `> * answer` / `> - wrong` blockquote grammar
+ * that {@link parseQuestions} understands — no schema change.
+ */
 
-// Resolve content directories relative to the project root
-function getContentDir(collection: 'blog' | 'tests'): string {
-  const root = process.cwd();
-  return path.join(root, 'src', 'content', collection);
-}
+import { getSupabaseAdmin, type BlogPostRow, type PracticeTestRow } from './supabase';
+
+export type ContentCollection = 'blog' | 'tests';
+
+const TABLE_BY_COLLECTION: Record<ContentCollection, 'blog_posts' | 'practice_tests'> = {
+  blog: 'blog_posts',
+  tests: 'practice_tests',
+};
 
 export interface ContentItem {
   slug: string;
@@ -22,6 +45,7 @@ export interface BlogFrontmatter {
   category: 'DevOps' | 'Cloud' | 'AI' | 'Security';
   tags: string[];
   image?: string;
+  status?: 'draft' | 'published';
 }
 
 export interface TestFrontmatter {
@@ -32,6 +56,7 @@ export interface TestFrontmatter {
   timeLimit?: number;
   passingScore: number;
   tags: string[];
+  status?: 'draft' | 'published';
 }
 
 export interface QuestionData {
@@ -40,68 +65,157 @@ export interface QuestionData {
   correctIndex: number;
 }
 
-// --- File operations ---
+// ── Row ↔ ContentItem mappers ───────────────────────────────────────────────
+// Supabase returns snake_case; the rest of the app talks camelCase. Translate
+// once at the manager boundary so call sites don't need to know about either
+// shape.
 
-export function listContent(collection: 'blog' | 'tests'): ContentItem[] {
-  const dir = getContentDir(collection);
-  if (!fs.existsSync(dir)) return [];
-
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.mdx'));
-  return files.map((file) => {
-    const filePath = path.join(dir, file);
-    const raw = fs.readFileSync(filePath, 'utf-8');
-    const { data, content } = matter(raw);
-    return {
-      slug: file.replace('.mdx', ''),
-      frontmatter: data,
-      body: content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim(),
-    };
-  });
-}
-
-export function readContent(collection: 'blog' | 'tests', slug: string): ContentItem | null {
-  const filePath = path.join(getContentDir(collection), `${slug}.mdx`);
-  if (!fs.existsSync(filePath)) return null;
-
-  const raw = fs.readFileSync(filePath, 'utf-8');
-  const { data, content } = matter(raw);
-  // Normalize line endings for consistent parsing across OS
-  const normalizedBody = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+function blogRowToItem(row: BlogPostRow): ContentItem {
   return {
-    slug,
-    frontmatter: data,
-    body: normalizedBody,
+    slug: row.slug,
+    body: row.body,
+    frontmatter: {
+      title: row.title,
+      description: row.description,
+      pubDate: row.pub_date,
+      author: row.author,
+      category: row.category,
+      tags: row.tags,
+      ...(row.image ? { image: row.image } : {}),
+      status: row.status,
+    },
   };
 }
 
-export function writeContent(
-  collection: 'blog' | 'tests',
+function testRowToItem(row: PracticeTestRow): ContentItem {
+  return {
+    slug: row.slug,
+    body: row.body,
+    frontmatter: {
+      title: row.title,
+      description: row.description,
+      category: row.category,
+      difficulty: row.difficulty,
+      ...(row.time_limit !== null ? { timeLimit: row.time_limit } : {}),
+      passingScore: row.passing_score,
+      tags: row.tags,
+      status: row.status,
+    },
+  };
+}
+
+function rowToItem(c: ContentCollection, row: BlogPostRow | PracticeTestRow): ContentItem {
+  return c === 'blog' ? blogRowToItem(row as BlogPostRow) : testRowToItem(row as PracticeTestRow);
+}
+
+function frontmatterToBlogPatch(slug: string, fm: Record<string, unknown>, body: string) {
+  return {
+    slug,
+    title: String(fm.title ?? ''),
+    description: String(fm.description ?? ''),
+    pub_date: typeof fm.pubDate === 'string'
+      ? fm.pubDate.slice(0, 10)
+      : new Date(String(fm.pubDate ?? new Date().toISOString())).toISOString().slice(0, 10),
+    author: String(fm.author ?? 'CloudNative Atlas Team'),
+    category: String(fm.category ?? 'DevOps'),
+    tags: Array.isArray(fm.tags) ? (fm.tags as string[]) : [],
+    image: typeof fm.image === 'string' ? fm.image : null,
+    status: String(fm.status ?? 'published'),
+    body,
+  };
+}
+
+function frontmatterToTestPatch(slug: string, fm: Record<string, unknown>, body: string) {
+  return {
+    slug,
+    title: String(fm.title ?? ''),
+    description: String(fm.description ?? ''),
+    category: String(fm.category ?? 'DevOps'),
+    difficulty: String(fm.difficulty ?? 'Beginner'),
+    time_limit: typeof fm.timeLimit === 'number' ? fm.timeLimit : null,
+    passing_score: typeof fm.passingScore === 'number' ? fm.passingScore : 70,
+    tags: Array.isArray(fm.tags) ? (fm.tags as string[]) : [],
+    status: String(fm.status ?? 'published'),
+    body,
+  };
+}
+
+// ── CRUD ────────────────────────────────────────────────────────────────────
+
+export async function listContent(collection: ContentCollection): Promise<ContentItem[]> {
+  const table = TABLE_BY_COLLECTION[collection];
+  const { data, error } = await getSupabaseAdmin()
+    .from(table)
+    .select('*')
+    .order(collection === 'blog' ? 'pub_date' : 'created_at', { ascending: false });
+
+  if (error) throw new Error(`listContent(${collection}): ${error.message}`);
+  return (data as Array<BlogPostRow | PracticeTestRow>).map((r) => rowToItem(collection, r));
+}
+
+export async function readContent(
+  collection: ContentCollection,
+  slug: string,
+): Promise<ContentItem | null> {
+  const table = TABLE_BY_COLLECTION[collection];
+  const { data, error } = await getSupabaseAdmin()
+    .from(table)
+    .select('*')
+    .eq('slug', slug)
+    .maybeSingle();
+
+  if (error) throw new Error(`readContent(${collection}, ${slug}): ${error.message}`);
+  return data ? rowToItem(collection, data as BlogPostRow | PracticeTestRow) : null;
+}
+
+export async function writeContent(
+  collection: ContentCollection,
   slug: string,
   frontmatter: Record<string, unknown>,
-  body: string
-): void {
-  const dir = getContentDir(collection);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+  body: string,
+): Promise<void> {
+  const table = TABLE_BY_COLLECTION[collection];
+  const row =
+    collection === 'blog'
+      ? frontmatterToBlogPatch(slug, frontmatter, body)
+      : frontmatterToTestPatch(slug, frontmatter, body);
 
-  const content = matter.stringify(`\n${body}\n`, frontmatter);
-  fs.writeFileSync(path.join(dir, `${slug}.mdx`), content, 'utf-8');
+  const { error } = await getSupabaseAdmin()
+    .from(table)
+    .upsert(row, { onConflict: 'slug' });
+
+  if (error) throw new Error(`writeContent(${collection}, ${slug}): ${error.message}`);
 }
 
-export function deleteContent(collection: 'blog' | 'tests', slug: string): boolean {
-  const filePath = path.join(getContentDir(collection), `${slug}.mdx`);
-  if (!fs.existsSync(filePath)) return false;
+export async function deleteContent(
+  collection: ContentCollection,
+  slug: string,
+): Promise<boolean> {
+  const table = TABLE_BY_COLLECTION[collection];
+  const { error, count } = await getSupabaseAdmin()
+    .from(table)
+    .delete({ count: 'exact' })
+    .eq('slug', slug);
 
-  fs.unlinkSync(filePath);
-  return true;
+  if (error) throw new Error(`deleteContent(${collection}, ${slug}): ${error.message}`);
+  return (count ?? 0) > 0;
 }
 
-export function contentExists(collection: 'blog' | 'tests', slug: string): boolean {
-  return fs.existsSync(path.join(getContentDir(collection), `${slug}.mdx`));
+export async function contentExists(
+  collection: ContentCollection,
+  slug: string,
+): Promise<boolean> {
+  const table = TABLE_BY_COLLECTION[collection];
+  const { error, count } = await getSupabaseAdmin()
+    .from(table)
+    .select('slug', { count: 'exact', head: true })
+    .eq('slug', slug);
+
+  if (error) throw new Error(`contentExists(${collection}, ${slug}): ${error.message}`);
+  return (count ?? 0) > 0;
 }
 
-// --- Slug generation ---
+// ── Pure helpers (no DB) ────────────────────────────────────────────────────
 
 export function generateSlug(title: string): string {
   return title
@@ -112,8 +226,6 @@ export function generateSlug(title: string): string {
     .replace(/^-|-$/g, '')
     .substring(0, 80);
 }
-
-// --- Question format serialization ---
 
 export function serializeQuestions(questions: QuestionData[]): string {
   return questions

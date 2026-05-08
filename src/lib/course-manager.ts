@@ -1,6 +1,25 @@
-import fs from 'node:fs';
-import path from 'node:path';
+/**
+ * Course store + navigation helpers, backed by Supabase.
+ *
+ * Public API mirrors the previous filesystem implementation so callers
+ * (admin actions, public course pages) keep working unchanged:
+ *
+ *   listCourses()                        → CourseItem[]
+ *   readCourse(slug)                     → CourseItem | null
+ *   writeCourse(slug, data)              → void
+ *   deleteCourse(slug)                   → boolean
+ *   courseExists(slug)                   → boolean
+ *   getCourseNavSequence(slug, data)     → CourseNavStep[]   (pure)
+ *   getPrevNext(sequence, currentUrl)    → { prev, next }    (pure)
+ *
+ * The full nested module → topic → questions tree is stored as JSONB in
+ * the `courses.modules` column. The pre-write normalisation that fills in
+ * missing slugs and sorts by `order` runs before insertion, exactly as it
+ * did when writing JSON files.
+ */
+
 import { validateSlug, generateSlug as sharedGenerateSlug } from './slug';
+import { getSupabaseAdmin, type CourseRow } from './supabase';
 
 // ─── Types ────────────────────────────────────
 
@@ -43,54 +62,30 @@ export interface CourseItem {
   data: CourseData;
 }
 
-// ─── Slug validation ──────────────────────────
-
-/** Re-exported from lib/slug for backwards compatibility. */
 export const generateSlug = sharedGenerateSlug;
 
-// ─── Directory ────────────────────────────────
+// ─── Row ↔ CourseItem mapping ─────────────────
 
-function getCoursesDir(): string {
-  return path.join(process.cwd(), 'src', 'content', 'courses');
+function rowToItem(row: CourseRow): CourseItem {
+  return {
+    slug: row.slug,
+    data: {
+      title: row.title,
+      description: row.description,
+      category: row.category,
+      difficulty: row.difficulty,
+      tags: row.tags,
+      modules: (row.modules as ModuleData[]) ?? [],
+      status: row.status,
+    },
+  };
 }
 
-// ─── CRUD Operations ──────────────────────────
-
-export function listCourses(): CourseItem[] {
-  const dir = getCoursesDir();
-  if (!fs.existsSync(dir)) return [];
-
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json'));
-  return files.map((file) => {
-    const filePath = path.join(dir, file);
-    const raw = fs.readFileSync(filePath, 'utf-8');
-    const data = JSON.parse(raw) as CourseData;
-    return {
-      slug: file.replace('.json', ''),
-      data,
-    };
-  });
-}
-
-export function readCourse(slug: string): CourseItem | null {
-  validateSlug(slug);
-  const filePath = path.join(getCoursesDir(), `${slug}.json`);
-  if (!fs.existsSync(filePath)) return null;
-
-  const raw = fs.readFileSync(filePath, 'utf-8');
-  const data = JSON.parse(raw) as CourseData;
-  return { slug, data };
-}
-
-export function writeCourse(slug: string, data: CourseData): void {
-  validateSlug(slug);
-  const dir = getCoursesDir();
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-
-  // Ensure modules and topics have valid slugs and are sorted by order
-  data.modules = data.modules
+// Normalise modules + topics: fill in missing slugs from titles and sort
+// every level by `order`. Pre-write sanitation, identical to what the
+// FS-backed version did.
+function normalizeModules(modules: ModuleData[]): ModuleData[] {
+  return modules
     .map((mod, mi) => ({
       ...mod,
       slug: mod.slug || generateSlug(mod.title) || `module-${mi}`,
@@ -104,30 +99,84 @@ export function writeCourse(slug: string, data: CourseData): void {
         .sort((a, b) => a.order - b.order),
     }))
     .sort((a, b) => a.order - b.order);
-
-  fs.writeFileSync(path.join(dir, `${slug}.json`), JSON.stringify(data, null, 2) + '\n', 'utf-8');
 }
 
-export function deleteCourse(slug: string): boolean {
+// ─── CRUD ─────────────────────────────────────
+
+export async function listCourses(): Promise<CourseItem[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('courses')
+    .select('*')
+    .order('title', { ascending: true });
+
+  if (error) throw new Error(`listCourses: ${error.message}`);
+  return (data as CourseRow[]).map(rowToItem);
+}
+
+export async function readCourse(slug: string): Promise<CourseItem | null> {
   validateSlug(slug);
-  const filePath = path.join(getCoursesDir(), `${slug}.json`);
-  if (!fs.existsSync(filePath)) return false;
+  const { data, error } = await getSupabaseAdmin()
+    .from('courses')
+    .select('*')
+    .eq('slug', slug)
+    .maybeSingle();
 
-  fs.unlinkSync(filePath);
-  return true;
+  if (error) throw new Error(`readCourse(${slug}): ${error.message}`);
+  return data ? rowToItem(data as CourseRow) : null;
 }
 
-export function courseExists(slug: string): boolean {
+export async function writeCourse(slug: string, data: CourseData): Promise<void> {
   validateSlug(slug);
-  return fs.existsSync(path.join(getCoursesDir(), `${slug}.json`));
+
+  const normalisedModules = normalizeModules(data.modules);
+
+  const row = {
+    slug,
+    title: data.title,
+    description: data.description,
+    category: data.category,
+    difficulty: data.difficulty,
+    tags: data.tags,
+    status: data.status ?? 'draft',
+    modules: normalisedModules,
+  };
+
+  const { error } = await getSupabaseAdmin()
+    .from('courses')
+    .upsert(row, { onConflict: 'slug' });
+
+  if (error) throw new Error(`writeCourse(${slug}): ${error.message}`);
+
+  // Mutate caller's data so existing callers that read `data.modules` after
+  // calling writeCourse keep seeing the normalised shape (matches the
+  // FS-version behaviour).
+  data.modules = normalisedModules;
 }
 
-// ─── Navigation sequence ──────────────────────
+export async function deleteCourse(slug: string): Promise<boolean> {
+  validateSlug(slug);
+  const { error, count } = await getSupabaseAdmin()
+    .from('courses')
+    .delete({ count: 'exact' })
+    .eq('slug', slug);
 
-/**
- * A single stop in the linear learning flow of a course.
- * Either a study topic or a module-end quiz.
- */
+  if (error) throw new Error(`deleteCourse(${slug}): ${error.message}`);
+  return (count ?? 0) > 0;
+}
+
+export async function courseExists(slug: string): Promise<boolean> {
+  validateSlug(slug);
+  const { error, count } = await getSupabaseAdmin()
+    .from('courses')
+    .select('slug', { count: 'exact', head: true })
+    .eq('slug', slug);
+
+  if (error) throw new Error(`courseExists(${slug}): ${error.message}`);
+  return (count ?? 0) > 0;
+}
+
+// ─── Navigation helpers (pure, unchanged) ─────
+
 export type CourseNavStep =
   | {
       type: 'topic';
@@ -149,12 +198,12 @@ export type CourseNavStep =
  * Builds the flat ordered list a student walks through:
  * `topic, topic, ..., quiz(ifAny), topic, topic, ..., quiz(ifAny), ...`
  *
- * Modules without questions skip the quiz step so no empty quiz appears in
- * the sequence. Used by topic + quiz pages to compute previous/next.
+ * Modules without questions skip the quiz step so no empty quiz appears
+ * in the sequence. Used by topic + quiz pages to compute previous/next.
  */
 export function getCourseNavSequence(
   courseSlug: string,
-  data: CourseData
+  data: CourseData,
 ): CourseNavStep[] {
   const steps: CourseNavStep[] = [];
   for (const mod of data.modules) {
@@ -182,12 +231,12 @@ export function getCourseNavSequence(
 }
 
 /**
- * Returns `{ prev, next }` for a given step in the course navigation sequence,
- * identified by its URL path. Returns nulls at the ends of the course.
+ * Returns `{ prev, next }` for a given step in the course navigation
+ * sequence, identified by its URL path. Returns nulls at the ends.
  */
 export function getPrevNext(
   sequence: CourseNavStep[],
-  currentUrl: string
+  currentUrl: string,
 ): { prev: CourseNavStep | null; next: CourseNavStep | null } {
   const index = sequence.findIndex((s) => s.url === currentUrl);
   if (index === -1) return { prev: null, next: null };
