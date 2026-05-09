@@ -4,6 +4,19 @@ dist/
 # generated types
 .astro/
 
+# Content collections — Supabase is the source of truth.
+# Files are regenerated from the database by `npm run db:sync-content`,
+# which runs automatically as `prebuild` and `predev`. Local edits to
+# these files will be overwritten on the next sync.
+src/content/blog/
+src/content/tests/
+src/content/projects/
+src/content/courses/
+src/content/settings.json
+
+# Contact-form submissions (legacy file store — now in Supabase contact_messages).
+data/contact-messages/
+
 # dependencies
 node_modules/
 
